@@ -1,0 +1,8 @@
+Build:
+go build -o terraform-provider-cloudcasa.exe 
+
+provider must be copied to plugins location
+Windows based system %APPDATA%\terraform.d\plugins\${host_name}/${namespace}/${type}/${version}/${target}
+so its
+%APPDATA%\terraform.d\plugins\cloudcasa.io/cloudcasa/cloudcasa/0.0.1/windows_amd64
+
