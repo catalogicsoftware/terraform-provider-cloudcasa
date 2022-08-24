@@ -6,3 +6,21 @@ Windows based system %APPDATA%\terraform.d\plugins\${host_name}/${namespace}/${t
 so its
 %APPDATA%\terraform.d\plugins\cloudcasa.io/cloudcasa/cloudcasa/0.0.1/windows_amd64
 
+https://learn.hashicorp.com/tutorials/terraform/provider-setup?in=terraform/providers
+
+Data sources:
+    need resource schemas for every resource we want to support
+    - kubeclusters
+    - policies
+    - backupps
+    - restores
+
+
+commvault docs
+https://documentation.commvault.com/11.23/essential/129278_establish_commvault_terraform_provider.html
+
+
+hasicorp docs
+https://learn.hashicorp.com/tutorials/terraform/provider-setup?in=terraform/providers
+using this for data source https://github.com/hashicorp/terraform-provider-hashicups/blob/main/hashicups/data_source_coffee.go
+for client  https://github.com/hashicorp-demoapp/hashicups-client-go/blob/main/coffees.go

@@ -10,16 +10,16 @@ import (
 const ApiURL string = "https://api.staging.cloudcasa.io"
 
 type Client struct {
-	ApiURL		string
-	HTTPClient 	*http.Client
-	Token		string
-	Email		string
+	ApiURL     string
+	HTTPClient *http.Client
+	Token      string
+	Email      string
 }
 
 func NewClient(email, idToken *string) (*Client, error) {
 	c := Client{
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
-		ApiURL: ApiURL,
+		ApiURL:     ApiURL,
 	}
 
 	// If email/token are not provided, return empty client

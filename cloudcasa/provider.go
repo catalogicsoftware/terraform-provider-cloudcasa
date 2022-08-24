@@ -1,8 +1,8 @@
 package cloudcasa
 
 import (
-	"os"
 	"context"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -23,6 +23,9 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("CC_ACCESS_TOKEN", os.Getenv("CC_ACCESS_TOKEN")),
 				Description: "The JWT id_token used to authenticate against the CloudCasa API.",
 			},
+		},
+		DataSourcesMap: map[string]*schema.Resource{
+			"kubecluster": dataSourceKubeclusters(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
@@ -45,9 +48,9 @@ func providerConfigure(ctx context.Context, data *schema.ResourceData) (interfac
 		c, err := NewClient(&email, &idToken)
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
-				Severity: 	diag.Error,
-				Summary: 	"Unable to create CloudCasa client",
-				Detail: 	"Unable to authenticate user with supplied CloudCasa credentials",
+				Severity: diag.Error,
+				Summary:  "Unable to create CloudCasa client",
+				Detail:   "Unable to authenticate user with supplied CloudCasa credentials",
 			})
 
 			return nil, diags
@@ -59,13 +62,12 @@ func providerConfigure(ctx context.Context, data *schema.ResourceData) (interfac
 	c, err := NewClient(nil, nil)
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
-			Severity: 	diag.Error,
-			Summary:  	"Unable to create CloudCasa client",
-			Detail:   	"Unable to create anonymous CloudCasa client - credentials are missing.",
+			Severity: diag.Error,
+			Summary:  "Unable to create CloudCasa client",
+			Detail:   "Unable to create anonymous CloudCasa client - credentials are missing.",
 		})
 		return nil, diags
 	}
 
 	return c, diags
 }
-
