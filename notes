@@ -24,3 +24,14 @@ hasicorp docs
 https://learn.hashicorp.com/tutorials/terraform/provider-setup?in=terraform/providers
 using this for data source https://github.com/hashicorp/terraform-provider-hashicups/blob/main/hashicups/data_source_coffee.go
 for client  https://github.com/hashicorp-demoapp/hashicups-client-go/blob/main/coffees.go
+
+
+Copy the commvault layout
+
+--terraform-provider-cloudcasa/
+----cloudcasa
+    resource_example.go
+    provider.go
+--------handler
+        (handlers and structs).go
+

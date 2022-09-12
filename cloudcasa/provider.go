@@ -17,15 +17,15 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("CC_EMAIL", os.Getenv("CC_EMAIL")),
 				Description: "The email address of your CloudCasa user.",
 			},
-			"id_token": {
+			"apikey": {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("CC_ACCESS_TOKEN", os.Getenv("CC_ACCESS_TOKEN")),
-				Description: "The JWT id_token used to authenticate against the CloudCasa API.",
+				Description: "The CloudCasa API key used to authenticate against the CloudCasa API.",
 			},
 		},
 		DataSourcesMap: map[string]*schema.Resource{
-			"kubecluster": dataSourceKubeclusters(),
+			"cloudcasa_kubeclusters":	dataSourceKubeclusters(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
@@ -34,7 +34,7 @@ func Provider() *schema.Provider {
 // Perform validation here - this function will run when we 'terraform init'
 func providerConfigure(ctx context.Context, data *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	email := data.Get("email").(string)
-	idToken := data.Get("id_token").(string)
+	idToken := data.Get("apikey").(string)
 
 	// TODO: check simple casa commands with supplied email/token
 	// to validate login.
