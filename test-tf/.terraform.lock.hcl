@@ -2,9 +2,9 @@
 # Manual edits may be lost in future updates.
 
 provider "cloudcasa.io/cloudcasa/cloudcasa" {
-  version     = "0.0.56"
-  constraints = "0.0.56"
+  version     = "0.0.67"
+  constraints = "0.0.67"
   hashes = [
-    "h1:vkcJe3MbDLqMSl08p3Rq8NF5LHpTvxV1bW1HLfW+f9k=",
+    "h1:ttB6q3QpPcUmGUv060Da+6I2F6CxyV59rB/AXvksQ0Y=",
   ]
 }

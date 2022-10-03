@@ -24,8 +24,11 @@ func Provider() *schema.Provider {
 				Description: "The CloudCasa API key used to authenticate against the CloudCasa API.",
 			},
 		},
-		DataSourcesMap: map[string]*schema.Resource{
-			"cloudcasa_kubeclusters":	dataSourceKubeclusters(),
+		// DataSourcesMap: map[string]*schema.Resource{
+		// 	"cloudcasa_kubeclusters":	dataSourceKubeclusters(),
+		// },
+		ResourcesMap: map[string]*schema.Resource{
+		 	"cloudcasa_kubecluster":	resourceKubecluster(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
