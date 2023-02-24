@@ -182,12 +182,6 @@ func dataSourceKubeclustersRead(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// Steps (?):
-	// Populate struct with user input
-	// Post struct to apiserver
-	// Set ID and terraform resource fields
-
 	var diags diag.Diagnostics
 
 	var kubeclusterData handler.CreateKubeclusterReq
