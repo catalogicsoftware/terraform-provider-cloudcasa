@@ -16,18 +16,12 @@ import (
 
 func resourceKubecluster() *schema.Resource {
 	return &schema.Resource{
-		//ReadContext: 	dataSourceKubeclustersRead,
 		CreateContext:	resourceCreateKubecluster,
 		ReadContext:	resourceReadKubecluster,
 		UpdateContext:	resourceUpdateKubecluster,
 		DeleteContext:	resourceDeleteKubecluster,
 
 		Schema: map[string]*schema.Schema{
-			// "kubecluster": &schema.Schema{
-			// 	Type:     schema.TypeList,
-			// 	Computed: true,
-			// 	Elem: &schema.Resource{
-			// 		Schema: map[string]*schema.Schema{
 			"id": &schema.Schema{
 				Type:     	schema.TypeString,
 				Computed:	true,
@@ -106,6 +100,10 @@ func resourceKubecluster() *schema.Resource {
 				// 	},
 				// },
 			},
+			"agent_url": &schema.Schema{
+				Type:		schema.TypeString,
+				Computed:	true,
+			},
 			// "_links": &schema.Schema{
 			// 	Type:		schema.TypeMap,
 			// 	Optional:	true,
@@ -116,27 +114,6 @@ func resourceKubecluster() *schema.Resource {
 		},
 	}
 }
-
-// testing using Client in data source function
-// func (c *Client) GetKubeclusters() ([]Kubeclusters, error) {
-// 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/kubeclusters", c.ApiURL), nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	body, err := c.doRequest(req, nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	kubeclusters := []Kubeclusters{}
-// 	err = json.Unmarshal(body, &ubeclusters)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return kubeclusters, nil
-// }
 
 type KubeclusterObjs struct {
 	Items 				[]KubeclusterObj	`json:"_items"`
@@ -168,7 +145,7 @@ func dataSourceKubeclustersRead(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(err)
 	}
 
-	req.Header.Set("Authorization", "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InM3NmtuNThRT2liTXRfZnNpVFlLMCJ9.eyJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9jb3VudHJ5IjoiVW5pdGVkIFN0YXRlcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL3RpbWV6b25lIjoiQW1lcmljYS9OZXdfWW9yayIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvdW50cnlfY29kZSI6IlVTIiwiaHR0cDovL3d3dy5jbG91ZGNhc2EuaW8vY291bnRyeV9jb2RlMyI6IlVTQSIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2ZpcnN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9sYXN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9qb2JUaXRsZSI6IkRldm9wcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvbXBhbnkiOiJDYXRhbG9naWMgU29mdHdhcmUiLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9hd3NfbWFya2V0cGxhY2VfdG9rZW4iOiItIiwibmlja25hbWUiOiJqZ2FybmVyIiwibmFtZSI6IkpvbmF0aGFuIEdhcm5lciIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci8yOTlhNmJhNjhlNjEwOGFiYjY1MmY4ZTkwZTM0YjVhNj9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRmpnLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDIyLTEwLTAzVDE0OjQzOjMxLjUxNVoiLCJlbWFpbCI6ImpnYXJuZXJAY2F0YWxvZ2ljc29mdHdhcmUuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImlzcyI6Imh0dHBzOi8vYXV0aC5jbG91ZGNhc2EuaW8vIiwic3ViIjoiYXV0aDB8NWZhYzQ4NDg0MWQ3MDgwMDY4YTA2ZGM5IiwiYXVkIjoiSkVKU3plblBGeE5FUFEwaDY0ZDIzZTZRMEdKNXpRanQiLCJpYXQiOjE2NjQ4MDgyMTMsImV4cCI6MTY2NDgxNTQxMywic2lkIjoiZEVNdkJQd1NjS0pnRW02NmVMcXBUaHNfVnQ4eFRYS3MiLCJub25jZSI6ImFqSmZlRmhyTW5CS05reFFlazFpT1c0MGRTNVNhRnB1TUdWbWJtZDBjemxtYVU1YU0zSlFWWGxYV1E9PSJ9.XE1p0KI29twtr1vTmU09aQIhM_G-PmNi1skZNWIZToTy4meoIpMuIR4w5WScGEx7HdC_VE6IpIu3g7a2FOoSOPS82G-yF9y9cKIkyl5D0VydRoMJHVhRIJnVMtduWXle94I8gSsgEOaYBNxbjyRvsv-e2r7Z9wrEHLAGdmYp0OJwi-J_tEyxkuWXZrv9CLfhJAEeLSqZzRJDm4nXcZadQie1122kiCT2R2P5ZocqbC8sE3pcPGRDafru3VainT03qaCLAK9ae8qH3MIs9gW7PAJrjFZSDZI514pcoy6QON1TfloWVRwtDra3GXAiHWLMlL8KZ6dF49oPoahXA5VlEA")
+	req.Header.Set("Authorization", "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InM3NmtuNThRT2liTXRfZnNpVFlLMCJ9.eyJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9jb3VudHJ5IjoiVW5pdGVkIFN0YXRlcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL3RpbWV6b25lIjoiQW1lcmljYS9OZXdfWW9yayIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvdW50cnlfY29kZSI6IlVTIiwiaHR0cDovL3d3dy5jbG91ZGNhc2EuaW8vY291bnRyeV9jb2RlMyI6IlVTQSIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2ZpcnN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9sYXN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9qb2JUaXRsZSI6IkRldm9wcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvbXBhbnkiOiJDYXRhbG9naWMgU29mdHdhcmUiLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9hd3NfbWFya2V0cGxhY2VfdG9rZW4iOiItIiwibmlja25hbWUiOiJqZ2FybmVyIiwibmFtZSI6IkpvbmF0aGFuIEdhcm5lciIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci8yOTlhNmJhNjhlNjEwOGFiYjY1MmY4ZTkwZTM0YjVhNj9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRmpnLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDIzLTAyLTI0VDE2OjUxOjU0LjQzMVoiLCJlbWFpbCI6ImpnYXJuZXJAY2F0YWxvZ2ljc29mdHdhcmUuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImlzcyI6Imh0dHBzOi8vYXV0aC5jbG91ZGNhc2EuaW8vIiwiYXVkIjoiSkVKU3plblBGeE5FUFEwaDY0ZDIzZTZRMEdKNXpRanQiLCJpYXQiOjE2NzcyNTc1MTYsImV4cCI6MTY3NzI2NDcxNiwic3ViIjoiYXV0aDB8NWZhYzQ4NDg0MWQ3MDgwMDY4YTA2ZGM5Iiwic2lkIjoiZzFabm5TcUJnSVgzWmMya1ZJMEU3TkRIWXhHcnYtSHYiLCJub25jZSI6ImVtOU9NR3RpYTBaRGJHMU9SMkpDWTFBd1RWRjFibXRVYkdWWFJuSmpibmt4VUV0cVp5MXplbVJGZEE9PSJ9.mFH80HRANlJGo3Ti1eQ9KIfiEBjy_QCW7T-NTtRpG0nwd7o1BqWEu4TXIaMt515fsU6TylMpsOa5WRmS6AryyNVOn9rWhOCPy4SjjJQ3LIm5Ewl-imlo87eq7uM4fXLxVHi0quiHhGBIh3jTgSHnGXiCVXLHt1qgP-sfYUAzu9nkvjOv2bjrLHLBuiKpF146tw7O0kVsHfsjoABSQeOJwuHLGhaRdqq8wX5msh7rx6yurJhX2-7Oy4y90HkAmHy52SN9yCqFE0m0Kula8t5CG4SqLfkd-eX9OiCXpa4elTrXTITD0uQHSUjDfrYpRR3_Hku-cLj8plbeTv_d2r8E1g")
 
 	r, err := client.Do(req)
 	if err != nil {
@@ -208,20 +185,17 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 
 	// Steps (?):
 	// Populate struct with user input
-	// Post struct to apiserver?
-	// set id? terraform ID or CC ID?
-	// Return ???
+	// Post struct to apiserver
+	// Set ID and terraform resource fields
 
 	var diags diag.Diagnostics
+
 	var kubeclusterData handler.CreateKubeclusterReq
-
 	kubeclusterData.Name = d.Get("name").(string)
-
-	kubeclusterResp := handler.CreateKubecluster(kubeclusterData)
+	createKubeclusterResp := handler.CreateKubecluster(kubeclusterData)
 
 	// TODO: Better failure check
-	// test by using wrong auth token
-	status := kubeclusterResp.Status
+	status := createKubeclusterResp.Status
 	if status != "OK" {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -231,7 +205,63 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 		return diags
 	}
 
-	d.SetId(kubeclusterResp.Id)
+	d.SetId(createKubeclusterResp.Id)
+
+	// At this point the cluster resource is created, but resp does not
+	// have the agent installation URL. So GET the kubecluster..
+	// It takes a while for the URL to be available, so loop until
+	// URL is ready (1 min?)
+
+	var getKubeclusterResp *handler.GetKubeclusterResp
+	var kubeclusterStatus handler.KubeclusterStatus
+
+	for i:=1; i<12; i++ {
+		getKubeclusterResp = handler.GetKubecluster(createKubeclusterResp.Id)
+		kubeclusterStatus = getKubeclusterResp.Status
+		if len(kubeclusterStatus.Agent_url) > 0{
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	// Check that Agent URL was fetched successfully
+	if len(kubeclusterStatus.Agent_url) == 0 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Failed to get Agent URL for Kubecluster",
+			Detail:   "Timed out waiting for Agent URL",
+		})
+		return diags
+	}
+
+	// try to set agent url from GET response
+	if err := d.Set("agent_url", kubeclusterStatus.Agent_url); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set fields in resourceData 'd'
+	// all string fields at once
+	// TODO: set Links and Status below
+	var kubeclusterFieldsMap = map[string]string{
+		"cc_user_email": createKubeclusterResp.Cc_user_email,
+		"created": createKubeclusterResp.Created,
+		"etag": createKubeclusterResp.Etag,
+		"org_id": createKubeclusterResp.Org_id,
+		"updated": createKubeclusterResp.Updated,
+	} 
+
+	for k,v := range kubeclusterFieldsMap{
+		if err := d.Set(k, v); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	// if err := d.Set("links", createKubeclusterResp.Links); err != nil {
+	// 	return diag.FromErr(err)
+	// }
+	// if err := d.Set("status", createKubeclusterResp.Status); err != nil {
+	// 	return diag.FromErr(err)
+	// }
 
 	return diags
 }
