@@ -22,13 +22,18 @@ func resourceKubecluster() *schema.Resource {
 		DeleteContext:	resourceDeleteKubecluster,
 
 		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
-				Type:     	schema.TypeString,
-				Computed:	true,
-			},
 			"name": &schema.Schema{
 				Type:     	schema.TypeString,
 				Required:	true,
+			},
+			"auto_install": &schema.Schema{
+				Type:		schema.TypeBool,
+				Optional:	true,
+				Default:	false,
+			},
+			"id": &schema.Schema{
+				Type:     	schema.TypeString,
+				Computed:	true,
 			},
 			"cc_user_email": &schema.Schema{
 				Type:		schema.TypeString,
@@ -134,7 +139,6 @@ type KubeclusterObj struct {
 // TODO: we should try to follow the structure commvault uses
 // eg. return nill for Read - check resource_aws_storage
 func dataSourceKubeclustersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	// TODO: use cloudcasa go client for these requests
 
 	client := &http.Client{Timeout: 10 * time.Second}
 
@@ -182,8 +186,10 @@ func dataSourceKubeclustersRead(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// TODO: use apikey from terraform config
 	var diags diag.Diagnostics
 
+	// Create kubecluster in cloudcasa
 	var kubeclusterData handler.CreateKubeclusterReq
 	kubeclusterData.Name = d.Get("name").(string)
 	createKubeclusterResp := handler.CreateKubecluster(kubeclusterData)
@@ -201,14 +207,31 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 
 	d.SetId(createKubeclusterResp.Id)
 
-	// At this point the cluster resource is created, but resp does not
-	// have the agent installation URL. So GET the kubecluster..
-	// It takes a while for the URL to be available, so loop until
-	// URL is ready (1 min?)
+	// Set fields in resourceData 'd'
+	// TODO: set Links and Status separately because they are maps
+	var kubeclusterFieldsMap = map[string]string{
+		"cc_user_email": createKubeclusterResp.Cc_user_email,
+		"created": createKubeclusterResp.Created,
+		"etag": createKubeclusterResp.Etag,
+		"org_id": createKubeclusterResp.Org_id,
+		"updated": createKubeclusterResp.Updated,
+	} 
+
+	for k,v := range kubeclusterFieldsMap{
+		if err := d.Set(k, v); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	// if auto_install is false, return now. Otherwise proceed with installation
+	if d.Get("auto_install") == false {
+		return diags
+	}
 
 	var getKubeclusterResp *handler.GetKubeclusterResp
 	var kubeclusterStatus handler.KubeclusterStatus
 
+	// wait 1m for agent URL
 	for i:=1; i<12; i++ {
 		getKubeclusterResp = handler.GetKubecluster(createKubeclusterResp.Id)
 		kubeclusterStatus = getKubeclusterResp.Status
@@ -230,24 +253,37 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 
 	// try to set agent url from GET response
 	if err := d.Set("agent_url", kubeclusterStatus.Agent_url); err != nil {
-		return diag.FromErr(err)
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Failed to retrieve CloudCasa Agent manifest",
+			Detail:   fmt.Sprintf("%f", err),
+		})
+		return diags
 	}
 
-	// Set fields in resourceData 'd'
-	// all string fields at once
-	// TODO: set Links and Status below
-	var kubeclusterFieldsMap = map[string]string{
-		"cc_user_email": createKubeclusterResp.Cc_user_email,
-		"created": createKubeclusterResp.Created,
-		"etag": createKubeclusterResp.Etag,
-		"org_id": createKubeclusterResp.Org_id,
-		"updated": createKubeclusterResp.Updated,
-	} 
+	// TODO: run agent install 'kubectl apply' command here
+	
 
-	for k,v := range kubeclusterFieldsMap{
-		if err := d.Set(k, v); err != nil {
-			return diag.FromErr(err)
+
+	// Now wait for cluster to be ACTIVE
+	// Wait 5min?
+	for i:=1; i<60; i++ {
+		getKubeclusterResp = handler.GetKubecluster(createKubeclusterResp.Id)
+		kubeclusterStatus = getKubeclusterResp.Status
+		if kubeclusterStatus.State == "ACTIVE"{
+			break
 		}
+		time.Sleep(5 * time.Second)
+	}
+
+	// Check if state was set to ACTIVE
+	if kubeclusterStatus.State != "ACTIVE" {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "CloudCasa Agent Installation Failed",
+			Detail:   fmt.Sprintf("Timed out waiting for cluster to reach ACTIVE state"),
+		})
+		return diags
 	}
 
 	// if err := d.Set("links", createKubeclusterResp.Links); err != nil {
