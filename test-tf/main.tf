@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     cloudcasa = {
-      version = "0.0.19"
+      version = "0.0.21"
       source  = "cloudcasa.io/cloudcasa/cloudcasa"
     }
   }
@@ -21,9 +21,9 @@ resource "cloudcasa_kubecluster" "testcluster" {
   # Auto installation requires KUBECONFIG var to be set
   # otherwise cluster creation will fail
 
-  provisioner "local-exec" {
-    command = "kubectl apply -f ${self.agent_url}"
-  }
+  # provisioner "local-exec" {
+  #   command = "kubectl apply -f ${self.agent_url}"
+  # }
 
   # TODO:
   # - add auto_install option to tf resource

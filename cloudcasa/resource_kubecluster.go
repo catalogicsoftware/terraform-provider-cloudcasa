@@ -7,6 +7,7 @@ import (
 	"time"
 	"context"
 	"strconv"
+	"os/exec"
 	
 	"terraform-provider-cloudcasa/cloudcasa/handler"
 
@@ -223,7 +224,7 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 		}
 	}
 
-	// if auto_install is false, return now. Otherwise proceed with installation
+	// if auto_install is false return now. Otherwise proceed with agent installation
 	if d.Get("auto_install") == false {
 		return diags
 	}
@@ -235,7 +236,7 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 	for i:=1; i<12; i++ {
 		getKubeclusterResp = handler.GetKubecluster(createKubeclusterResp.Id)
 		kubeclusterStatus = getKubeclusterResp.Status
-		if len(kubeclusterStatus.Agent_url) > 0{
+		if len(kubeclusterStatus.Agent_url) > 0 {
 			break
 		}
 		time.Sleep(5 * time.Second)
@@ -256,14 +257,23 @@ func resourceCreateKubecluster(ctx context.Context, d *schema.ResourceData, m in
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Failed to retrieve CloudCasa Agent manifest",
-			Detail:   fmt.Sprintf("%f", err),
+			Detail:   fmt.Sprintf("%s", err),
 		})
 		return diags
 	}
 
-	// TODO: run agent install 'kubectl apply' command here
-	
-
+	// TODO: add tip to make sure kubeconfig env var is set?
+	// OR we can accept kubeconfig as an input option?
+	kubectlCmd := exec.Command("kubectl",  "apply",  "-f",  fmt.Sprintf("%s", kubeclusterStatus.Agent_url))
+	_, err := kubectlCmd.Output()
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Failed to apply kubeagent manifest",
+			Detail:   fmt.Sprintf("%s", err),
+		})
+		return diags
+	}
 
 	// Now wait for cluster to be ACTIVE
 	// Wait 5min?
