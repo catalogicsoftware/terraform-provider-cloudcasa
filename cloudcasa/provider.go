@@ -23,7 +23,18 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("CC_ACCESS_TOKEN", os.Getenv("CC_ACCESS_TOKEN")),
 				Description: "The CloudCasa API key used to authenticate against the CloudCasa API.",
 			},
-		},
+			// TODO: support helm kubernetes config options
+			// https://github.com/hashicorp/terraform-provider-helm/blob/main/helm/provider.go
+		// 	"kubernetes": {
+		// 		Type:        schema.TypeList,
+		// 		MaxItems:    1,
+		// 		Optional:    true,
+		// 		// TODO: Add link to docs for config options?
+		// 		// add here or in error messages
+		// 		Description: "Kubernetes configuration",
+		// 		Elem:        kubernetesResource(),
+		// 	},
+		// },
 		// DataSourcesMap: map[string]*schema.Resource{
 		// 	"cloudcasa_kubeclusters":	dataSourceKubeclusters(),
 		// },
