@@ -1,200 +1,193 @@
 package cloudcasa
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"time"
 	"context"
-	"strconv"
 	"os/exec"
-	
-	"terraform-provider-cloudcasa/cloudcasa/handler"
+	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	cloudcasa "terraform-provider-cloudcasa/cloudcasa/client"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceKubecluster() *schema.Resource {
-	return &schema.Resource{
-		CreateContext:	resourceKubeclusterCreate,
-		ReadContext:	resourceKubeclusterRead,
-		UpdateContext:	resourceKubeclusterUpdate,
-		DeleteContext:	resourceKubeclusterDelete,
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ resource.Resource              = &resourceKubecluster{}
+	_ resource.ResourceWithConfigure = &resourceKubecluster{}
+)
 
-		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
-				Type:     	schema.TypeString,
-				Required:	true,
+func NewResourceKubecluster() resource.Resource {
+	return &resourceKubecluster{}
+}
+
+type resourceKubecluster struct {
+	Client *cloudcasa.Client
+}
+
+// kubeclusterResourceModel maps the resource schema data.
+type kubeclusterResourceModel struct {
+	Name          types.String `tfsdk:"name"`
+	Id            types.String `tfsdk:"id"`
+	Auto_install  types.Bool   `tfsdk:"auto_install"`
+	Cc_user_email types.String `tfsdk:"cc_user_email"`
+	Updated       types.String `tfsdk:"updated"`
+	Created       types.String `tfsdk:"created"`
+	Org_id        types.String `tfsdk:"org_id"`
+	Etag          types.String `tfsdk:"etag"`
+	Status        types.Map    `tfsdk:"status"`
+	Links         types.Map    `tfsdk:"links"`
+	Agent_url     types.String `tfsdk:"agent_url"`
+}
+
+// // Object structs
+// type KubeclusterObjs struct {
+// 	Items 				[]KubeclusterObj	`json:"_items"`
+// }
+
+// type KubeclusterObj struct {
+// 	Id					string		`json:"_id"`
+// 	Name				string		`json:"name"`
+// 	Cc_user_email		string		`json:"cc_user_email"`
+// 	Updated				string		`json:"_updated"`
+// 	Created				string		`json:"_created"`
+// 	Etag				string		`json:"_etag"`
+// 	Org_id				string		`json:"org_id"`
+// 	// Status 				struct {}	`json:"status"`
+// 	// Links 				struct {}	`json:"_links"`
+// }
+
+// API Response Objects
+type CreateKubeclusterResp struct {
+	Id            string   `json:"_id"`
+	Name          string   `json:"name"`
+	Cc_user_email string   `json:"cc_user_email"`
+	Updated       string   `json:"_updated"`
+	Created       string   `json:"_created"`
+	Etag          string   `json:"_etag"`
+	Org_id        string   `json:"org_id"`
+	Status        string   `json:"_status"`
+	Links         struct{} `json:"_links"`
+}
+
+// Metadata returns the data source type name.
+func (r *resourceKubecluster) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_kubecluster"
+}
+
+// Schema defines the schema for the resource.
+func (r *resourceKubecluster) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"auto_install": &schema.Schema{
-				Type:		schema.TypeBool,
-				Optional:	true,
-				Default:	false,
+			"name": schema.StringAttribute{
+				Required: true,
 			},
-			"id": &schema.Schema{
-				Type:     	schema.TypeString,
-				Computed:	true,
+			"auto_install": schema.BoolAttribute{
+				Optional: true,
 			},
-			"cc_user_email": &schema.Schema{
-				Type:		schema.TypeString,
-				Computed:	true,
+			"cc_user_email": schema.StringAttribute{
+				Computed: true,
 			},
-			"updated": &schema.Schema{
-				Type:		schema.TypeString,
-				Computed:	true,
+			"updated": schema.StringAttribute{
+				Computed: true,
 			},
-			"created": &schema.Schema{
-				Type:		schema.TypeString,
-				Computed:	true,
+			"created": schema.StringAttribute{
+				Computed: true,
 			},
-			"etag": &schema.Schema{
-				Type:		schema.TypeString,
-				Computed:	true,
+			"etag": schema.StringAttribute{
+				Computed: true,
 			},
-			"org_id": &schema.Schema{
-				Type:		schema.TypeString,
-				Computed: 	true,
+			"org_id": schema.StringAttribute{
+				Computed: true,
 			},
-			// TODO: REQUIRE status GET each time we apply changes,
-			// so that we can verify that the cluster is ACTIVE before anything else?
-			// counterpoint: consider situations where user might want to apply 
-			// changes to a cluster that is pending or unavailable.
-			"status": &schema.Schema{
-				// Cant be typeset?
-				Type:		schema.TypeMap,
-				Computed:	true,
-				Elem:		&schema.Schema{Type: schema.TypeString},
-				// Elem:		&schema.Resource{
-				// 	Schema:	map[string]*schema.Schema{
-				// 		"agenturl": {
-				// 			Type:		schema.TypeString,
-				// 			Optional: 	true,
-				// 		},
-				// 		"update_required": {
-				// 			Type:		schema.TypeBool,
-				// 			Optional: 	true,
-				// 		},
-				// 		"dormant": {
-				// 			Type:		schema.TypeBool,
-				// 			Optional: 	true,
-				// 		},
-				// 		"state": {
-				// 			Type:		schema.TypeString,
-				// 			Optional: 	true,
-				// 		},
-				// 	},
-				// },
+			"status": schema.MapAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
 			},
-			"links": &schema.Schema{
-				// Type cannot be TypeSet
-				// But TypeMap cannot have schema.Resource underneath..
-				Type:		schema.TypeMap,
-				Computed:	true,
-				// trying schema.Schema instead of schema.Resource
-				Elem:	 	&schema.Schema{Type: schema.TypeMap},
-				// Elem:		&schema.Schema{
-				// 	Schema: map[string]*schema.Schema{
-				// 		"self": {
-				// 			Type:		schema.TypeMap,
-				// 			Optional: 	true,
-				// 		},
-				// 		"parent": {
-				// 			Type:		schema.TypeMap,
-				// 			Optional: 	true,
-				// 		},
-				// 		"collection": {
-				// 			Type:		schema.TypeMap,
-				// 			Optional: 	true,
-				// 		},
-				// 	},
-				// },
+			"links": schema.MapAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
 			},
-			"agent_url": &schema.Schema{
-				Type:		schema.TypeString,
-				Computed:	true,
+			"agent_url": schema.StringAttribute{
+				Computed: true,
 			},
-			// "_links": &schema.Schema{
-			// 	Type:		schema.TypeMap,
-			// 	Optional:	true,
-			// },
-			// 		},
-			// 	},
-			// },
 		},
 	}
 }
 
-type KubeclusterObjs struct {
-	Items 				[]KubeclusterObj	`json:"_items"`
+// Configure adds the provider configured client to the data source.
+func (r *resourceKubecluster) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	r.Client = req.ProviderData.(*cloudcasa.Client)
 }
 
-type KubeclusterObj struct {
-	Id					string		`json:"_id"`
-	Name				string		`json:"name"`
-	Cc_user_email		string		`json:"cc_user_email"`
-	Updated				string		`json:"_updated"`
-	Created				string		`json:"_created"`
-	Etag				string		`json:"_etag"`
-	Org_id				string		`json:"org_id"`
-	// Status 				struct {}	`json:"status"`
-	// Links 				struct {}	`json:"_links"`
-}
+// Create creates the resource and sets the initial Terraform state.
+func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	// Retrieve values from plan
+	var plan kubeclusterResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-// TODO: implement READ DESTROY UPDATE in that order is easiest
-// https://www.hashicorp.com/blog/writing-custom-terraform-providers simple overview
-
-func resourceKubeclusterCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	//c := m.(*hc.Client)
-	
-	// TODO: use apikey from terraform config
-	var diags diag.Diagnostics
+	// Define kubecluster object
+	reqBody := map[string]string{
+		"name": plan.Name.ValueString(),
+	}
 
 	// Create kubecluster in cloudcasa
-	var kubeclusterData handler.CreateKubeclusterReq
-	kubeclusterData.Name = d.Get("name").(string)
-	createKubeclusterResp := handler.CreateKubecluster(kubeclusterData)
-
-	// TODO: Better failure check
-	status := createKubeclusterResp.Status
-	if status != "OK" {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Failed to create Kubecluster",
-			Detail:   "Received status NOT OK",
-		})
-		return diags
+	createResp, err := r.Client.CreateKubecluster(reqBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Creating Kubecluster",
+			err.Error(),
+		)
+		return
 	}
 
-	d.SetId(createKubeclusterResp.Id)
-
-	// Set fields in resourceData 'd'
-	// TODO: set Links and Status separately because they are maps
-	var kubeclusterFieldsMap = map[string]string{
-		"cc_user_email": createKubeclusterResp.Cc_user_email,
-		"created": createKubeclusterResp.Created,
-		"etag": createKubeclusterResp.Etag,
-		"org_id": createKubeclusterResp.Org_id,
-		"updated": createKubeclusterResp.Updated,
-	} 
-
-	for k,v := range kubeclusterFieldsMap{
-		if err := d.Set(k, v); err != nil {
-			return diag.FromErr(err)
-		}
-	}
+	// Set fields in plan
+	plan.Id = types.StringValue(createResp.Id)
+	plan.Name = types.StringValue(createResp.Name)
+	plan.Cc_user_email = types.StringValue(createResp.Cc_user_email)
+	plan.Created = types.StringValue(createResp.Created)
+	plan.Updated = types.StringValue(createResp.Updated)
+	plan.Etag = types.StringValue(createResp.Etag)
+	plan.Org_id = types.StringValue(createResp.Org_id)
 
 	// if auto_install is false return now. Otherwise proceed with agent installation
-	if d.Get("auto_install") == false {
-		return diags
+	if !plan.Auto_install.ValueBool() {
+		plan.Agent_url = types.StringNull()
+		plan.Links = types.MapNull(types.StringType)
+		plan.Status = types.MapNull(types.StringType)
+		diags = resp.State.Set(ctx, plan)
+		return
 	}
 
-	var getKubeclusterResp *handler.GetKubeclusterResp
-	var kubeclusterStatus handler.KubeclusterStatus
+	var kubeclusterStatus cloudcasa.KubeclusterStatus
 
 	// wait 1m for agent URL
-	for i:=1; i<12; i++ {
-		getKubeclusterResp = handler.GetKubecluster(createKubeclusterResp.Id)
+	for i := 1; i < 12; i++ {
+		getKubeclusterResp, err := r.Client.GetKubecluster(createResp.Id)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error checking Kubecluster status after creation",
+				err.Error(),
+			)
+			return
+		}
 		kubeclusterStatus = getKubeclusterResp.Status
 		if len(kubeclusterStatus.Agent_url) > 0 {
 			break
@@ -204,43 +197,41 @@ func resourceKubeclusterCreate(ctx context.Context, d *schema.ResourceData, m in
 
 	// Check that Agent URL was fetched successfully
 	if len(kubeclusterStatus.Agent_url) == 0 {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Failed to get Agent URL for Kubecluster",
-			Detail:   "Timed out waiting for Agent URL",
-		})
-		return diags
+		resp.Diagnostics.AddError(
+			"Failed to get Agent URL for kubecluster",
+			"Timed out waiting for Agent URL: "+err.Error(),
+		)
+		return
 	}
 
-	// try to set agent url from GET response
-	if err := d.Set("agent_url", kubeclusterStatus.Agent_url); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Failed to retrieve CloudCasa Agent manifest",
-			Detail:   fmt.Sprintf("%s", err),
-		})
-		return diags
-	}
+	// Set agent url from response
+	plan.Agent_url = types.StringValue(kubeclusterStatus.Agent_url)
 
 	// TODO: add tip to make sure kubeconfig env var is set?
 	// OR we can accept kubeconfig as an input option?
-	kubectlCmd := exec.Command("kubectl",  "apply",  "-f",  fmt.Sprintf("%s", kubeclusterStatus.Agent_url))
-	_, err := kubectlCmd.Output()
+	kubectlCmd := exec.Command("kubectl", "apply", "-f", kubeclusterStatus.Agent_url)
+	_, err = kubectlCmd.Output()
 	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Failed to apply kubeagent manifest",
-			Detail:   fmt.Sprintf("%s", err),
-		})
-		return diags
+		resp.Diagnostics.AddError(
+			"Failed to apply kubeagent manifest",
+			err.Error(),
+		)
+		return
 	}
 
 	// Now wait for cluster to be ACTIVE
 	// Wait 5min?
-	for i:=1; i<60; i++ {
-		getKubeclusterResp = handler.GetKubecluster(createKubeclusterResp.Id)
+	for i := 1; i < 60; i++ {
+		getKubeclusterResp, err := r.Client.GetKubecluster(createResp.Id)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error checking Kubecluster status after applying Agent manifest",
+				err.Error(),
+			)
+			return
+		}
 		kubeclusterStatus = getKubeclusterResp.Status
-		if kubeclusterStatus.State == "ACTIVE"{
+		if kubeclusterStatus.State == "ACTIVE" {
 			break
 		}
 		time.Sleep(5 * time.Second)
@@ -248,32 +239,28 @@ func resourceKubeclusterCreate(ctx context.Context, d *schema.ResourceData, m in
 
 	// Check if state was set to ACTIVE
 	if kubeclusterStatus.State != "ACTIVE" {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "CloudCasa Agent Installation Failed",
-			Detail:   fmt.Sprintf("Timed out waiting for cluster to reach ACTIVE state"),
-		})
-		return diags
+		resp.Diagnostics.AddError(
+			"CloudCasa Agent installation failed",
+			"Timed out waiting for cluster to reach ACTIVE state: "+err.Error(),
+		)
+		return
 	}
 
-	// if err := d.Set("links", createKubeclusterResp.Links); err != nil {
-	// 	return diag.FromErr(err)
-	// }
-	// if err := d.Set("status", createKubeclusterResp.Status); err != nil {
-	// 	return diag.FromErr(err)
-	// }
-
-	return diags
+	// Save state before returning
+	plan.Links = types.MapNull(types.StringType)
+	plan.Status = types.MapNull(types.StringType)
+	diags = resp.State.Set(ctx, plan)
+	return
 }
 
-func resourceKubeclusterRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	return
 }
 
-func resourceKubeclusterUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	return
 }
 
-func resourceKubeclusterDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+func (r *resourceKubecluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	return
 }
