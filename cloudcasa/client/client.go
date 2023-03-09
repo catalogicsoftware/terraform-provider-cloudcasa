@@ -57,6 +57,12 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, err
 	}
 
+	// write the whole body at once
+	err = ioutil.WriteFile("rest_logs.txt", body, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating rest_logs.txt file: " + err.Error())
+	}
+
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
 	}

@@ -95,3 +95,48 @@ func (c *Client) GetKubecluster(kubeclusterId string) (*GetKubeclusterResp, erro
 
 	return &getKubeclusterResp, nil
 }
+
+func (c *Client) UpdateKubecluster(kubeclusterId string, reqBody interface{}, etag string) (*GetKubeclusterResp, error) {
+	// Create rest request struct
+	putReqBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	putReq, err := http.NewRequest(http.MethodPut, c.ApiURL+"kubeclusters/"+kubeclusterId, bytes.NewBuffer(putReqBody))
+	if err != nil {
+		err = fmt.Errorf("error creating http request; %w", err)
+		return nil, err
+	}
+
+	// PUT requests require matching etag
+	putReq.Header.Set("If-Match", etag)
+
+	// PUT to CloudCasa API
+	putRespBody, err := c.doRequest(putReq)
+	if err != nil {
+		err = fmt.Errorf("error performing http request; %w", err)
+		return nil, err
+	}
+
+	var putResp GetKubeclusterResp
+	if err := json.Unmarshal(putRespBody, &putResp); err != nil {
+		return nil, err
+	}
+
+	return &putResp, nil
+}
+
+func (c *Client) DeleteKubecluster(kubeclusterId string) error {
+	delReq, err := http.NewRequest(http.MethodDelete, c.ApiURL+"kubeclusters/"+kubeclusterId, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.doRequest(delReq)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

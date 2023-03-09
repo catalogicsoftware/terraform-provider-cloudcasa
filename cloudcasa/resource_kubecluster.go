@@ -41,24 +41,8 @@ type kubeclusterResourceModel struct {
 	Status        types.Map    `tfsdk:"status"`
 	Links         types.Map    `tfsdk:"links"`
 	Agent_url     types.String `tfsdk:"agent_url"`
+	LastUpdated   types.String `tfsdk:"last_updated"`
 }
-
-// // Object structs
-// type KubeclusterObjs struct {
-// 	Items 				[]KubeclusterObj	`json:"_items"`
-// }
-
-// type KubeclusterObj struct {
-// 	Id					string		`json:"_id"`
-// 	Name				string		`json:"name"`
-// 	Cc_user_email		string		`json:"cc_user_email"`
-// 	Updated				string		`json:"_updated"`
-// 	Created				string		`json:"_created"`
-// 	Etag				string		`json:"_etag"`
-// 	Org_id				string		`json:"org_id"`
-// 	// Status 				struct {}	`json:"status"`
-// 	// Links 				struct {}	`json:"_links"`
-// }
 
 // API Response Objects
 type CreateKubeclusterResp struct {
@@ -120,6 +104,9 @@ func (r *resourceKubecluster) Schema(_ context.Context, _ resource.SchemaRequest
 			"agent_url": schema.StringAttribute{
 				Computed: true,
 			},
+			"last_updated": schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -166,6 +153,8 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	plan.Updated = types.StringValue(createResp.Updated)
 	plan.Etag = types.StringValue(createResp.Etag)
 	plan.Org_id = types.StringValue(createResp.Org_id)
+	// LastUpdated is for Terraform state, does not come from CloudCasa
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	// if auto_install is false return now. Otherwise proceed with agent installation
 	if !plan.Auto_install.ValueBool() {
@@ -249,18 +238,138 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	// Save state before returning
 	plan.Links = types.MapNull(types.StringType)
 	plan.Status = types.MapNull(types.StringType)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
 	diags = resp.State.Set(ctx, plan)
-	return
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
+// Read refreshes the Terraform state with the latest data.
 func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	return
+	// Get current state
+	var state kubeclusterResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Get refreshed Kubecluster from CloudCasa
+	getKubeclusterResp, err := r.Client.GetKubecluster(state.Id.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting Kubecluster from CloudCasa",
+			"Could not read Kubecluster with ID "+state.Id.ValueString()+" :"+err.Error(),
+		)
+		return
+	}
+
+	// Overwrite values with refreshed state
+	// Set fields in plan
+	state.Id = types.StringValue(getKubeclusterResp.Id)
+	state.Name = types.StringValue(getKubeclusterResp.Name)
+	state.Cc_user_email = types.StringValue(getKubeclusterResp.Cc_user_email)
+	state.Created = types.StringValue(getKubeclusterResp.Created)
+	state.Updated = types.StringValue(getKubeclusterResp.Updated)
+	state.Etag = types.StringValue(getKubeclusterResp.Etag)
+	state.Org_id = types.StringValue(getKubeclusterResp.Org_id)
+
+	// Set refreshed state
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
+// Update updates the resource and sets the updated Terraform state on success.
 func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	return
+	// Retrieve values from plan
+	var plan kubeclusterResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Retrieve values from TF state
+	// (need etag value to edit the existing object)
+	// TODO: Load etag from TF state OR GET from CC API?
+	var state kubeclusterResourceModel
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Generate API request body from plan
+	// NAME is editable
+	reqBody := map[string]string{
+		"name": plan.Name.ValueString(),
+	}
+
+	// Update kubecluster in CloudCasa
+	updateResp, err := r.Client.UpdateKubecluster(plan.Id.ValueString(), reqBody, state.Etag.ValueString())
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Updating Kubecluster",
+			err.Error(),
+		)
+		return
+	}
+
+	// Overwrite values with refreshed state
+	// Set fields in plan
+	// TODO: do we need Updated AND last_updated? One is CC one is TF but still, lot of info
+	plan.Id = types.StringValue(updateResp.Id)
+	plan.Name = types.StringValue(updateResp.Name)
+	plan.Cc_user_email = types.StringValue(updateResp.Cc_user_email)
+	plan.Created = types.StringValue(updateResp.Created)
+	plan.Updated = types.StringValue(updateResp.Updated)
+	plan.Etag = types.StringValue(updateResp.Etag)
+	plan.Org_id = types.StringValue(updateResp.Org_id)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
+	// Check that Agent URL was fetched successfully
+	kubeclusterStatus := updateResp.Status
+	if len(kubeclusterStatus.Agent_url) == 0 {
+		plan.Agent_url = types.StringValue("")
+	} else {
+		plan.Agent_url = types.StringValue(kubeclusterStatus.Agent_url)
+	}
+
+	// Save state before returning
+	plan.Links = types.MapNull(types.StringType)
+	plan.Status = types.MapNull(types.StringType)
+	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
+// Delete deletes the resource and removes the Terraform state on success.
 func (r *resourceKubecluster) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	return
+	// Retrieve values from state
+	var state kubeclusterResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	err := r.Client.DeleteKubecluster(state.Id.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Deleting Kubecluster resource",
+			"Could not delete Kubecluster, unexpected error: "+err.Error(),
+		)
+		return
+	}
 }
