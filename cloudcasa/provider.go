@@ -39,6 +39,7 @@ func (p *cloudcasaProvider) Metadata(_ context.Context, _ provider.MetadataReque
 }
 
 // Schema defines the provider-level schema for configuration data.
+// TODO: rm email?
 func (p *cloudcasaProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
@@ -128,5 +129,6 @@ func (p *cloudcasaProvider) DataSources(_ context.Context) []func() datasource.D
 func (p *cloudcasaProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewResourceKubecluster,
+		NewResourceKubebackup,
 	}
 }

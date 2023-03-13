@@ -7,6 +7,7 @@ import (
 
 	cloudcasa "terraform-provider-cloudcasa/cloudcasa/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -16,8 +17,9 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &resourceKubecluster{}
-	_ resource.ResourceWithConfigure = &resourceKubecluster{}
+	_ resource.Resource                = &resourceKubecluster{}
+	_ resource.ResourceWithConfigure   = &resourceKubecluster{}
+	_ resource.ResourceWithImportState = &resourceKubecluster{}
 )
 
 func NewResourceKubecluster() resource.Resource {
@@ -41,7 +43,6 @@ type kubeclusterResourceModel struct {
 	Status        types.Map    `tfsdk:"status"`
 	Links         types.Map    `tfsdk:"links"`
 	Agent_url     types.String `tfsdk:"agent_url"`
-	LastUpdated   types.String `tfsdk:"last_updated"`
 }
 
 // API Response Objects
@@ -104,9 +105,6 @@ func (r *resourceKubecluster) Schema(_ context.Context, _ resource.SchemaRequest
 			"agent_url": schema.StringAttribute{
 				Computed: true,
 			},
-			"last_updated": schema.StringAttribute{
-				Computed: true,
-			},
 		},
 	}
 }
@@ -153,8 +151,6 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	plan.Updated = types.StringValue(createResp.Updated)
 	plan.Etag = types.StringValue(createResp.Etag)
 	plan.Org_id = types.StringValue(createResp.Org_id)
-	// LastUpdated is for Terraform state, does not come from CloudCasa
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	// if auto_install is false return now. Otherwise proceed with agent installation
 	if !plan.Auto_install.ValueBool() {
@@ -238,7 +234,6 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	// Save state before returning
 	plan.Links = types.MapNull(types.StringType)
 	plan.Status = types.MapNull(types.StringType)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -248,6 +243,8 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 }
 
 // Read refreshes the Terraform state with the latest data.
+// TODO: if auto-install is enabled, we should check the status on each refresh
+// and apply the agent with current kubeconfig if not active.
 func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Get current state
 	var state kubeclusterResourceModel
@@ -324,7 +321,6 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 
 	// Overwrite values with refreshed state
 	// Set fields in plan
-	// TODO: do we need Updated AND last_updated? One is CC one is TF but still, lot of info
 	plan.Id = types.StringValue(updateResp.Id)
 	plan.Name = types.StringValue(updateResp.Name)
 	plan.Cc_user_email = types.StringValue(updateResp.Cc_user_email)
@@ -332,7 +328,6 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 	plan.Updated = types.StringValue(updateResp.Updated)
 	plan.Etag = types.StringValue(updateResp.Etag)
 	plan.Org_id = types.StringValue(updateResp.Org_id)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	// Check that Agent URL was fetched successfully
 	kubeclusterStatus := updateResp.Status
@@ -345,7 +340,6 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 	// Save state before returning
 	plan.Links = types.MapNull(types.StringType)
 	plan.Status = types.MapNull(types.StringType)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -372,4 +366,9 @@ func (r *resourceKubecluster) Delete(ctx context.Context, req resource.DeleteReq
 		)
 		return
 	}
+}
+
+func (r *resourceKubecluster) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Retrieve import ID and save to id attribute
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
