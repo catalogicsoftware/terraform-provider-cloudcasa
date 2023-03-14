@@ -2,7 +2,46 @@ Kubebackup w policy request
 {"source":{"all_namespaces":true,"snapshotPersistentVolumes":true},"cluster":"640a4c7933c355a6ec8ab5e1","pre_hooks":[],"post_hooks":[],"policy":"60e8a5fe0dfd4691925a9947","name":"snap_with_policy","trigger_type":"SCHEDULED"}
 
 kubebackup w policy resp
-{"source": {"all_namespaces": true, "snapshotPersistentVolumes": true, "snapshot_longhorn": true}, "cluster": "640a4c7933c355a6ec8ab5e1", "pre_hooks": [], "post_hooks": [], "policy": "60e8a5fe0dfd4691925a9947", "name": "snap_with_policy", "trigger_type": "SCHEDULED", "pause": false, "_updated": "Mon, 13 Mar 2023 19:08:41 GMT", "_created": "Mon, 13 Mar 2023 19:08:41 GMT", "cc_user_email": "jgarner@catalogicsoftware.com", "_etag": "af5771855b277f4200f2bc95a68e47ce76c08d45", "_id": "640f74b99c9cf6648dc169e6", "_links": {"self": {"title": "Kubebackup", "href": "/v1/kubebackups/640f74b99c9cf6648dc169e6"}, "related": {"cluster": {"title": "Kubecluster", "href": "/v1/kubeclusters/640a4c7933c355a6ec8ab5e1"}, "policy": {"title": "policy", "href": "/v1/policies/60e8a5fe0dfd4691925a9947"}}}, "_status": "OK"}
+{
+   "source":{
+      "all_namespaces":true,
+      "snapshotPersistentVolumes":true,
+      "snapshot_longhorn":true
+   },
+   "cluster":"640a4c7933c355a6ec8ab5e1",
+   "pre_hooks":[
+      
+   ],
+   "post_hooks":[
+      
+   ],
+   "policy":"60e8a5fe0dfd4691925a9947",
+   "name":"snap_with_policy",
+   "trigger_type":"SCHEDULED",
+   "pause":false,
+   "_updated":"Mon, 13 Mar 2023 19:08:41 GMT",
+   "_created":"Mon, 13 Mar 2023 19:08:41 GMT",
+   "cc_user_email":"jgarner@catalogicsoftware.com",
+   "_etag":"af5771855b277f4200f2bc95a68e47ce76c08d45",
+   "_id":"640f74b99c9cf6648dc169e6",
+   "_links":{
+      "self":{
+         "title":"Kubebackup",
+         "href":"/v1/kubebackups/640f74b99c9cf6648dc169e6"
+      },
+      "related":{
+         "cluster":{
+            "title":"Kubecluster",
+            "href":"/v1/kubeclusters/640a4c7933c355a6ec8ab5e1"
+         },
+         "policy":{
+            "title":"policy",
+            "href":"/v1/policies/60e8a5fe0dfd4691925a9947"
+         }
+      }
+   },
+   "_status":"OK"
+}
 
 Kubebackup adhoc request
 {"source":{"all_namespaces":false,"snapshotPersistentVolumes":true,"namespaces":["test-csi-snapshot"]},"cluster":"640a4c7933c355a6ec8ab5e1","pre_hooks":[],"post_hooks":[],"name":"test_manual_backup_nopolicy","trigger_type":"ADHOC"}

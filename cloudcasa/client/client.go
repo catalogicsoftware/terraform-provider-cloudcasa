@@ -2,6 +2,7 @@ package cloudcasa
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -9,6 +10,8 @@ import (
 
 const ApiURL string = "https://api.staging.cloudcasa.io/api/v1/"
 const JSON string = "application/json"
+
+const LogRequests bool = true
 
 type Client struct {
 	ApiURL     string
@@ -38,6 +41,25 @@ func NewClient(apikey *string) (*Client, error) {
 	return &c, nil
 }
 
+// Log REST request/responses
+func logRequest(body io.ReadCloser) error {
+	if !LogRequests {
+		return nil
+	}
+
+	parsedBody, err := ioutil.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	//defer body.Close()
+
+	err = ioutil.WriteFile("request_logs"+time.Now().String()+".txt", parsedBody, 0644)
+	if err != nil {
+		err = fmt.Errorf("CloudCasa Client: Error logging REST request: " + err.Error())
+	}
+	return err
+}
+
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	// Assume client object has apikey
 	apikey := c.Apikey
@@ -57,10 +79,11 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	// write the whole body at once
-	err = ioutil.WriteFile("rest_logs.txt", body, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("Error creating rest_logs.txt file: " + err.Error())
+	if LogRequests {
+		err = ioutil.WriteFile("request_logs"+time.Now().String()+".txt", body, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("CloudCasa Client: Error logging REST request: " + err.Error())
+		}
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {

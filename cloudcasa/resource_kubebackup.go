@@ -89,7 +89,7 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 			"run_on_apply": schema.BoolAttribute{
 				Optional: true,
 			},
-			"retention": schema.NumberAttribute{
+			"retention": schema.Int64Attribute{
 				Optional: true,
 			},
 			"all_namespaces": schema.BoolAttribute{
@@ -216,13 +216,49 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	plan.Etag = types.StringValue(createResp.Etag)
 
 	diags = resp.State.Set(ctx, plan)
+
+	// If run_on_apply is false return now. Otherwise continue and run the job
+	if !plan.Run.ValueBool() {
+		return
+	}
+
+	// Select options for backup
+	// tODO: Handle offloads, not supported rn
+	backupType := "kubebackups"
+	if createResp.Source.SnapshotPersistentVolumes {
+		backupType = "kubeoffloads"
+	}
+
+	var retentionDays int
+	if plan.Retention.IsNull() {
+		retentionDays = 7
+	} else {
+		retentionDays = int(plan.Retention.ValueInt64())
+	}
+
+	// Run backup
+	runResp, err := r.Client.RunKubebackup(createResp.Id, backupType, retentionDays)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Running Kubebackup",
+			err.Error(),
+		)
+		return
+	}
+
+	resp.Diagnostics.AddWarning("Received runResp. Job should be running...", runResp.Id)
+
+	// Get jobs where backupdef_name = kubebackup name
+	// sort: -start_time
+	// page: 1
+	// max_results: 5
+	// where: {"type":{"$nin":["DELETE_BACKUP","AWSRDS_BACKUP_DELETE","AGENT_UPDATE"]}}
+
+	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// TODO: run backup
-
 }
 
 // Read refreshes the Terraform state with the latest data.

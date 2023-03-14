@@ -18,13 +18,6 @@ type CreateKubebackupReq struct {
 	Source       CreateKubebackupReqSource `json:"source"`
 }
 
-// CreateKubebackupReqSource maps the 'source' dict for the request body
-type CreateKubebackupReqSource struct {
-	All_namespaces            bool     `json:"all_namespaces"`
-	SnapshotPersistentVolumes bool     `json:"snapshotPersistentVolumes"`
-	Namespaces                []string `json:"namespaces,omitempty"`
-}
-
 // CreateKubebackupResp maps the POST response received from CloudCasa
 type CreateKubebackupResp struct {
 	Id           string   `json:"_id"`
@@ -41,6 +34,13 @@ type CreateKubebackupResp struct {
 	// Pause        bool     `json:"pause"`
 }
 
+// CreateKubebackupReqSource maps the 'source' dict for the request body
+type CreateKubebackupReqSource struct {
+	All_namespaces            bool     `json:"all_namespaces"`
+	SnapshotPersistentVolumes bool     `json:"snapshotPersistentVolumes"`
+	Namespaces                []string `json:"namespaces,omitempty"`
+}
+
 // GetKubebackupResp maps the GET response received from CloudCasa
 type GetKubebackupResp struct {
 	Id            string `json:"_id"`
@@ -54,13 +54,22 @@ type GetKubebackupResp struct {
 
 // TODO: what do we need to return from run response?
 type RunKubebackupResp struct {
-	Id      string `json:"_id"`
-	Cluster string `json:"cluster"`
-	Name    string `json:"name"`
-	Policy  string `json:"policy"`
+	Id      string                  `json:"_id"`
+	Cluster string                  `json:"cluster"`
+	Name    string                  `json:"name"`
+	Pause   bool                    `json:"pause"`
+	Status  RunKubebackupRespStatus `json:"status"`
+	Updated string                  `json:"_updated"`
+	Created string                  `json:"_created"`
+	Etag    string                  `json:"_etag"`
 }
 
 type RunKubebackupRespStatus struct {
+	LastJobRunTime string              `json:"last_job_run_time"`
+	Jobs           []map[string]string `json:"jobs"`
+}
+
+type JobStatus struct {
 }
 
 func (c *Client) RunKubebackup(backupId string, backupType string, retention int) (*RunKubebackupResp, error) {
@@ -96,14 +105,13 @@ func (c *Client) RunKubebackup(backupId string, backupType string, retention int
 		return nil, err
 	}
 
-	// Get jobs where backupdef_name = kubebackup name
-	// sort -time
-	// sort: -start_time
-	// page: 1
-	// max_results: 5
-	// where: {"type":{"$nin":["DELETE_BACKUP","AWSRDS_BACKUP_DELETE","AGENT_UPDATE"]}}
-
 	return &runResp, nil
+}
+
+// TODO: move to job_client.go
+func (c *Client) WatchJob(jobId string) (*JobStatus, error) {
+
+	return nil, nil
 }
 
 // CreateKubebackup creates a resource in CloudCasa and returns a struct with important fields
