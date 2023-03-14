@@ -35,6 +35,7 @@ type kubebackupResourceModel struct {
 	Pre_hooks         types.Set    `tfsdk:"pre_hooks"`
 	Post_hooks        types.Set    `tfsdk:"post_hooks"`
 	Run               types.Bool   `tfsdk:"run_on_apply"`
+	Retention         types.Int64  `tfsdk:"retention"`
 	All_namespaces    types.Bool   `tfsdk:"all_namespaces"`
 	Select_namespaces types.Set    `tfsdk:"select_namespaces"`
 	Snapshot_pvs      types.Bool   `tfsdk:"snapshot_persistent_volumes"`
@@ -86,6 +87,9 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 			// TODO: implement /run API on every apply by forcing GET
 			// like we do for kubeclusters
 			"run_on_apply": schema.BoolAttribute{
+				Optional: true,
+			},
+			"retention": schema.NumberAttribute{
 				Optional: true,
 			},
 			"all_namespaces": schema.BoolAttribute{
@@ -168,6 +172,16 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	}
 	if !plan.Post_hooks.IsNull() {
 		plan.Post_hooks.ElementsAs(ctx, reqBody.Post_hooks, false)
+	}
+
+	// If retention is set, check that run_on_apply is true
+	if !plan.Retention.IsNull() {
+		if !plan.Run.ValueBool() {
+			resp.Diagnostics.AddError(
+				"Invalid Kubebackup Definition",
+				"Retention is set but backup job will not run. run_on_apply must be true to specify retention outside of a policy.",
+			)
+		}
 	}
 
 	// If run_on_apply, set trigger_type to ADHOC

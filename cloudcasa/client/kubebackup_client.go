@@ -52,6 +52,60 @@ type GetKubebackupResp struct {
 	Org_id        string `json:"org_id"`
 }
 
+// TODO: what do we need to return from run response?
+type RunKubebackupResp struct {
+	Id      string `json:"_id"`
+	Cluster string `json:"cluster"`
+	Name    string `json:"name"`
+	Policy  string `json:"policy"`
+}
+
+type RunKubebackupRespStatus struct {
+}
+
+func (c *Client) RunKubebackup(backupId string, backupType string, retention int) (*RunKubebackupResp, error) {
+	// Build request body
+	reqBody := map[string]interface{}{
+		"retention": map[string]int{
+			"retainDays": retention,
+		},
+		"runBackup": true,
+	}
+
+	runReqBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: check if we need to add anything else for kubeoffload/kubebackup distinction
+	runReq, err := http.NewRequest(http.MethodPost, c.ApiURL+backupType+"/"+backupId+"/action/run", bytes.NewBuffer(runReqBody))
+	if err != nil {
+		err = fmt.Errorf("error creating http request; %w", err)
+		return nil, err
+	}
+
+	// POST to CloudCasa API
+	runRespBody, err := c.doRequest(runReq)
+	if err != nil {
+		err = fmt.Errorf("error performing http request; %w", err)
+		return nil, err
+	}
+
+	var runResp RunKubebackupResp
+	if err := json.Unmarshal(runRespBody, &runResp); err != nil {
+		return nil, err
+	}
+
+	// Get jobs where backupdef_name = kubebackup name
+	// sort -time
+	// sort: -start_time
+	// page: 1
+	// max_results: 5
+	// where: {"type":{"$nin":["DELETE_BACKUP","AWSRDS_BACKUP_DELETE","AGENT_UPDATE"]}}
+
+	return &runResp, nil
+}
+
 // CreateKubebackup creates a resource in CloudCasa and returns a struct with important fields
 func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*CreateKubebackupResp, error) {
 

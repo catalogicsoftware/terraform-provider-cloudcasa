@@ -36,3 +36,72 @@ kubeoffloads/action/run REQ
 RESP
 {"_id": "640f71339b2a9c441c128186", "delete_snapshots": false, "options": {}, "offload_provider": {"type": "aws", "region": "us-east-2"}, "trigger_type": "ADHOC", "run_backup": false, "name": "test_manual_backup_nopolicy", "backupdef": "640f71339c9cf6648dc169e1", "skip_live_copy": false, "snapshot_longhorn": true, "pause": false, "_updated": "Mon, 13 Mar 2023 18:53:39 GMT", "_created": "Mon, 13 Mar 2023 18:53:39 GMT", "cc_user_email": "jgarner@catalogicsoftware.com", "cluster": "640a4c7933c355a6ec8ab5e1", "_etag": "5a39f0cb2aeadde2c9432d80fff7b68e74278acb", "_links": {"self": {"title": "Kubeoffload", "href": "/v1/kubeoffloads/640f71339b2a9c441c128186"}, "related": {"backupdef": {"title": "Kubebackup", "href": "/v1/kubebackups/640f71339c9cf6648dc169e1"}, "cluster": {"title": "Kubecluster", "href": "/v1/kubeclusters/640a4c7933c355a6ec8ab5e1"}}, "parent": {"title": "home", "href": "/"}, "collection": {"title": "/v1/kubeoffloads", "href": "v1/kubeoffloads/640f71339b2a9c441c128186/action/run"}}}
 
+
+another RUN RESP
+{
+   "_id":"63d97bb4d34ca06a2e9cd41d",
+   "source":{
+      "all_namespaces":false,
+      "snapshotPersistentVolumes":true,
+      "namespaces":[
+         "amds-system"
+      ],
+      "snapshot_longhorn":true
+   },
+   "cluster":"63d97b07858890f8ba2eed5c",
+   "name":"cc-prod-snap",
+   "policy":"63d97bb0ac71685eb7b8bf4d",
+   "trigger_type":"SCHEDULED",
+   "pause":false,
+   "cc_user_email":"jgarner@catalogicsoftware.com",
+   "status":{
+      "jobs":[
+         {
+            "jobid":"640db0bc07c84d5e990e1128",
+            "state":"FAILED",
+            "message":"Internal operation failed"
+         },
+         {
+            "jobid":"640f0237e9bd5b3186152ad1",
+            "state":"FAILED",
+            "message":"Internal operation failed"
+         },
+         {
+            "jobid":"641053b98a83a41108a57e38",
+            "state":"FAILED",
+            "message":"Internal operation failed"
+         }
+      ],
+      "last_job_run_time":1678791609
+   },
+   "_updated":"Tue, 14 Mar 2023 11:00:23 GMT",
+   "_created":"Tue, 31 Jan 2023 20:36:03 GMT",
+   "_etag":"5dbba09553473a58fd56954baaa460956ac2e443",
+   "_links":{
+      "self":{
+         "title":"Kubebackup",
+         "href":"/v1/kubebackups/63d97bb4d34ca06a2e9cd41d"
+      },
+      "related":{
+         "cluster":{
+            "title":"Kubecluster",
+            "href":"/v1/kubeclusters/63d97b07858890f8ba2eed5c"
+         },
+         "policy":{
+            "title":"policy",
+            "href":"/v1/policies/63d97bb0ac71685eb7b8bf4d"
+         }
+      },
+      "parent":{
+         "title":"home",
+         "href":"/"
+      },
+      "collection":{
+         "title":"/v1/kubebackups",
+         "href":"v1/kubebackups/63d97bb4d34ca06a2e9cd41d/action/run"
+      }
+   }
+}
+
+casa list jobs --where backupdef_name test_terraform_kubebackup 
+
