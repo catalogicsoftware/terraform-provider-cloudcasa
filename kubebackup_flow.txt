@@ -2,46 +2,7 @@ Kubebackup w policy request
 {"source":{"all_namespaces":true,"snapshotPersistentVolumes":true},"cluster":"640a4c7933c355a6ec8ab5e1","pre_hooks":[],"post_hooks":[],"policy":"60e8a5fe0dfd4691925a9947","name":"snap_with_policy","trigger_type":"SCHEDULED"}
 
 kubebackup w policy resp
-{
-   "source":{
-      "all_namespaces":true,
-      "snapshotPersistentVolumes":true,
-      "snapshot_longhorn":true
-   },
-   "cluster":"640a4c7933c355a6ec8ab5e1",
-   "pre_hooks":[
-      
-   ],
-   "post_hooks":[
-      
-   ],
-   "policy":"60e8a5fe0dfd4691925a9947",
-   "name":"snap_with_policy",
-   "trigger_type":"SCHEDULED",
-   "pause":false,
-   "_updated":"Mon, 13 Mar 2023 19:08:41 GMT",
-   "_created":"Mon, 13 Mar 2023 19:08:41 GMT",
-   "cc_user_email":"jgarner@catalogicsoftware.com",
-   "_etag":"af5771855b277f4200f2bc95a68e47ce76c08d45",
-   "_id":"640f74b99c9cf6648dc169e6",
-   "_links":{
-      "self":{
-         "title":"Kubebackup",
-         "href":"/v1/kubebackups/640f74b99c9cf6648dc169e6"
-      },
-      "related":{
-         "cluster":{
-            "title":"Kubecluster",
-            "href":"/v1/kubeclusters/640a4c7933c355a6ec8ab5e1"
-         },
-         "policy":{
-            "title":"policy",
-            "href":"/v1/policies/60e8a5fe0dfd4691925a9947"
-         }
-      }
-   },
-   "_status":"OK"
-}
+{"source": {"all_namespaces": true, "snapshotPersistentVolumes": true, "snapshot_longhorn": true}, "cluster": "640a4c7933c355a6ec8ab5e1", "pre_hooks": [], "post_hooks": [], "policy": "60e8a5fe0dfd4691925a9947", "name": "snap_with_policy", "trigger_type": "SCHEDULED", "pause": false, "_updated": "Mon, 13 Mar 2023 19:08:41 GMT", "_created": "Mon, 13 Mar 2023 19:08:41 GMT", "cc_user_email": "jgarner@catalogicsoftware.com", "_etag": "af5771855b277f4200f2bc95a68e47ce76c08d45", "_id": "640f74b99c9cf6648dc169e6", "_links": {"self": {"title": "Kubebackup", "href": "/v1/kubebackups/640f74b99c9cf6648dc169e6"}, "related": {"cluster": {"title": "Kubecluster", "href": "/v1/kubeclusters/640a4c7933c355a6ec8ab5e1"}, "policy": {"title": "policy", "href": "/v1/policies/60e8a5fe0dfd4691925a9947"}}}, "_status": "OK"}
 
 Kubebackup adhoc request
 {"source":{"all_namespaces":false,"snapshotPersistentVolumes":true,"namespaces":["test-csi-snapshot"]},"cluster":"640a4c7933c355a6ec8ab5e1","pre_hooks":[],"post_hooks":[],"name":"test_manual_backup_nopolicy","trigger_type":"ADHOC"}
@@ -144,3 +105,130 @@ another RUN RESP
 
 casa list jobs --where backupdef_name test_terraform_kubebackup 
 
+{
+   "_items":[
+      {
+         "_id":"64121191da07561a4e1d88b0",
+         "name":"kubebackup-i9nedcacS9",
+         "type":"K8S_SNAP",
+         "state":"RUNNING",
+         "start_time":1678905744,
+         "cluster":"640a4c7933c355a6ec8ab5e1",
+         "backupdef":{
+            "_id":"641202241b2d0b5c2a8f26c4",
+            "name":"test_terraform_kubebackup",
+            "cluster":"640a4c7933c355a6ec8ab5e1",
+            "trigger_type":"ADHOC",
+            "source":{
+               "all_namespaces":true,
+               "snapshotPersistentVolumes":false,
+               "snapshot_longhorn":true
+            },
+            "pause":false,
+            "_updated":"Wed, 15 Mar 2023 17:37:01 GMT",
+            "_created":"Wed, 15 Mar 2023 17:36:36 GMT",
+            "org_id":"5fa0215bca6a6290073377d4",
+            "cc_user_email":"jgarner@catalogicsoftware.com",
+            "_etag":"cd63676ec2007a6658dabddf45d539ccf5159a0f",
+            "status":{
+               "jobs":[
+                  {
+                     "jobid":"64120226c0aee59ff6a90b83",
+                     "state":"COMPLETED",
+                     "message":"Backup Successful. "
+                  }
+               ],
+               "last_job_run_time":1678901798
+            }
+         },
+         "jobrunner":"backup-zhrmn-x27lp",
+         "retention":{
+            "retainDays":7,
+            "numAlwaysRetain":0
+         },
+         "activity":[
+            "2023-03-15 18:42:25 UTC: Initiating the backup process"
+         ],
+         "cluster_name":"test_terraform_cluster",
+         "backupdef_name":"test_terraform_kubebackup",
+         "awsrds":{
+            
+         },
+         "awsebs":{
+            
+         },
+         "awseks":{
+            
+         },
+         "azure_aks":{
+            
+         },
+         "google_cloud_gke":{
+            
+         },
+         "kube_copy_progress":{
+            "stats":{
+               "estimated_size":0,
+               "estimated_number_of_files":0,
+               "io_size":0,
+               "io_number_of_files":0,
+               "transferred_size":0,
+               "transferred_number_of_files":0
+            },
+            "total_pvs":0,
+            "pending_pvs":0,
+            "active_pvs":0,
+            "completed_pvs":0,
+            "failed_pvs":0
+         },
+         "kube_snapshot_progress":{
+            "total_pvs":0,
+            "pending_pvs":0,
+            "active_pvs":0,
+            "completed_pvs":0,
+            "failed_pvs":0,
+            "skipped_pvs":0
+         },
+         "phase":"OFFLOAD_RUNNING",
+         "record_offload_snapshot_job":false,
+         "process_logs":false,
+         "logs_available":false,
+         "_updated":"Wed, 15 Mar 2023 18:42:25 GMT",
+         "_created":"Wed, 15 Mar 2023 18:42:25 GMT",
+         "cc_user_email":null,
+         "display_name":"test_terraform_kubebackup",
+         "_etag":"ba4e809e27e6bf72dea53cfe6842dbf78d263a6a",
+         "_links":{
+            "self":{
+               "title":"Job",
+               "href":"/v1/jobs/64121191da07561a4e1d88b0"
+            },
+            "related":{
+               "cluster":{
+                  "title":"Kubecluster",
+                  "href":"/v1/kubeclusters/640a4c7933c355a6ec8ab5e1"
+               },
+               "backupdef":{
+                  "title":"Kubebackup",
+                  "href":"/v1/kubebackups/641202241b2d0b5c2a8f26c4"
+               }
+            }
+         }
+      }
+   ],
+   "_links":{
+      "parent":{
+         "title":"home",
+         "href":"/"
+      },
+      "self":{
+         "title":"/v1/jobs",
+         "href":"v1/jobs?where={\"type\":{\"$nin\":[\"DELETE_BACKUP\",\"AWSRDS_BACKUP_DELETE\",\"AGENT_UPDATE\"]},\"state\":{\"$in\":[\"RUNNING\",\"CATALOG\"]}}&sort=-start_time"
+      }
+   },
+   "_meta":{
+      "page":1,
+      "max_results":1000,
+      "total":1
+   }
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // CreateKubebackupReq maps the request body for kubebackups
@@ -65,11 +66,29 @@ type RunKubebackupResp struct {
 }
 
 type RunKubebackupRespStatus struct {
-	LastJobRunTime string              `json:"last_job_run_time"`
+	LastJobRunTime int64               `json:"last_job_run_time"`
 	Jobs           []map[string]string `json:"jobs"`
 }
 
 type JobStatus struct {
+}
+
+type GetJobsResp struct {
+	Items []GetJobResp `json:"_items"`
+}
+
+type GetJobResp struct {
+	Id         string   `json:"_id"`
+	Name       string   `json:"name"`
+	Type       string   `json:"type"`
+	State      string   `json:"state"`
+	Start_Time int64    `json:"start_time"`
+	Cluster    string   `json:"cluster"`
+	Jobrunner  string   `json:"jobrunner"`
+	Activity   []string `json:"activity"`
+	Updated    string   `json:"_updated"`
+	Created    string   `json:"_created"`
+	Etag       string   `json:"_etag"`
 }
 
 func (c *Client) RunKubebackup(backupId string, backupType string, retention int) (*RunKubebackupResp, error) {
@@ -109,14 +128,78 @@ func (c *Client) RunKubebackup(backupId string, backupType string, retention int
 }
 
 // TODO: move to job_client.go
-func (c *Client) WatchJob(jobId string) (*JobStatus, error) {
+func (c *Client) GetJobFromBackupdef(backupName string, lastRunTime int64) (*GetJobResp, error) {
+	// Create HTTP Request
+	getReq, err := http.NewRequest(http.MethodGet, c.ApiURL+"jobs", nil)
+	if err != nil {
+		err = fmt.Errorf("error creating http request; %w", err)
+		return nil, err
+	}
 
-	return nil, nil
+	// Set HTTP queries
+	// TODO: returning 0 jobs
+	// maybe because of last job run time?
+	queries := getReq.URL.Query()
+	whereQueryString := fmt.Sprintf("{\"type\":{\"$nin\":[\"DELETE_BACKUP\",\"AWSRDS_BACKUP_DELETE\",\"AGENT_UPDATE\"]},\"backupdef_name\":\"%s\",\"start_time\":{\"$gt\":%d}}", backupName, lastRunTime)
+	//	whereQueryString := fmt.Sprintf("{\"type\":{\"$nin\":[\"DELETE_BACKUP\",\"AWSRDS_BACKUP_DELETE\",\"AGENT_UPDATE\"]},\"state\":{\"$in\":[\"RUNNING\",\"CATALOG\"]}}&sort=-start_time&backupdef_name=\"%s\"&\"status.last_job_run_time\":{\"$gt\":%s}", backupName, lastRunTime)
+	queries.Add("where", whereQueryString)
+	queries.Add("sort", "-start_time")
+	queries.Add("page", "1")
+	queries.Add("max_results", "5")
+	getReq.URL.RawQuery = queries.Encode()
+	//fmt.Println(getReq.URL.String())
+
+	cookie := &http.Cookie{
+		Name:  "auth0.is.authenticated",
+		Value: "true",
+	}
+	getReq.AddCookie(cookie)
+
+	foundJob := false
+	var getJobsResp GetJobsResp
+
+	// wait 1min for job to appear
+	for i := 1; i < 12; i++ {
+		// GET from CloudCasa API
+		getJobsRespBody, err := c.doRequest(getReq)
+		if err != nil {
+			err = fmt.Errorf("error performing http request; %w", err)
+			return nil, err
+		}
+
+		// Unmarshall response
+		if err := json.Unmarshal(getJobsRespBody, &getJobsResp); err != nil {
+			return nil, err
+		}
+
+		// If any jobs match the filter, we found the job
+		if len(getJobsResp.Items) > 0 {
+			foundJob = true
+			break
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+	if !foundJob {
+		return nil, fmt.Errorf("could not find job created by kubebackup %s", backupName)
+	}
+
+	return &getJobsResp.Items[0], nil
+}
+
+func (c *Client) WatchJobUntilComplete(jobId string, watchTimeout int64) error {
+	// Create HTTP Request
+	getReq, err := http.NewRequest(http.MethodGet, c.ApiURL+"jobs/"+jobId, nil)
+	if err != nil {
+		err = fmt.Errorf("error creating http request; %w", err)
+		return err
+	}
+
 }
 
 // CreateKubebackup creates a resource in CloudCasa and returns a struct with important fields
 func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*CreateKubebackupResp, error) {
-
 	// Create rest request struct
 	createReqBody, err := json.Marshal(reqBody)
 	if err != nil {

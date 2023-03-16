@@ -2,6 +2,7 @@ package cloudcasa
 
 import (
 	"context"
+	"fmt"
 
 	cloudcasa "terraform-provider-cloudcasa/cloudcasa/client"
 
@@ -248,17 +249,34 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 
 	resp.Diagnostics.AddWarning("Received runResp. Job should be running...", runResp.Id)
 
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.AddWarning("lastJobRunTime", fmt.Sprint(runResp.Status.LastJobRunTime))
+
+	// Get Job ID
+	jobResp, err := r.Client.GetJobFromBackupdef(runResp.Name, runResp.Status.LastJobRunTime)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error waiting for backup job to start",
+			err.Error(),
+		)
+		return
+	}
+
+	resp.Diagnostics.AddWarning("Found Job with ID", jobResp.Id)
+
+	// watch job
+
 	// Get jobs where backupdef_name = kubebackup name
 	// sort: -start_time
 	// page: 1
 	// max_results: 5
 	// where: {"type":{"$nin":["DELETE_BACKUP","AWSRDS_BACKUP_DELETE","AGENT_UPDATE"]}}
 
-	diags = resp.State.Set(ctx, plan)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 }
 
 // Read refreshes the Terraform state with the latest data.
