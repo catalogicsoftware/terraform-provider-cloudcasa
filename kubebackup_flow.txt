@@ -103,6 +103,10 @@ another RUN RESP
    }
 }
 
+where: {"type":{"$nin":["DELETE_BACKUP","AWSRDS_BACKUP_DELETE","AGENT_UPDATE"]},"state":{"$in":["RUNNING","CATALOG"]}}
+
+sort=-start_time&page=1&max_results=10&where=%7B%22type%22%3A%7B%22%24nin%22%3A%5B%22DELETE_BACKUP%22%2C%22AWSRDS_BACKUP_DELETE%22%2C%22AGENT_UPDATE%22%2C%22AWS_INVENTORY%22%2C%22CLOUD_INVENTORY%22%5D%7D%2C%22start_time%22%3A%7B%22%24gt%22%3A1678597200%2C%22%24lt%22%3A1679198399%7D%7D&embedded=%7B%22backupdef%22%3A1%2C%20%22restoredef%22%3A1%2C%20%22awsrds.copydef%22%3A1%2C%20%22cloudaccount%22%3A%201%7D
+
 casa list jobs --where backupdef_name test_terraform_kubebackup 
 
 {

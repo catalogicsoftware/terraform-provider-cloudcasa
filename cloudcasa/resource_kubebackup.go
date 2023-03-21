@@ -255,10 +255,16 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// if backup.status.lastjobruntime is 0 (nil) : we just created the kubebackup,
+	// so first job matching the filter is the correct job.
+	// if timestamp is not 0, we have a last run timestamp so job has ran before
+	// first job since that timestamp is the correct one.
+
+	// DEBUG
 	resp.Diagnostics.AddWarning("lastJobRunTime", fmt.Sprint(runResp.Status.LastJobRunTime))
 
 	// Get Job ID
-	jobResp, err := r.Client.GetJobFromBackupdef(runResp.Name, runResp.Status.LastJobRunTime)
+	jobResp, err := r.Client.GetJobFromBackupdef(runResp.Id, runResp.Status.LastJobRunTime)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error waiting for backup job to start",
@@ -267,16 +273,30 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// DEBUG
 	resp.Diagnostics.AddWarning("Found Job with ID", jobResp.Id)
 
 	// watch job
+	jobStatusResp, err := r.Client.WatchJobUntilComplete(jobResp.Id)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error fetching running job status",
+			err.Error(),
+		)
+		return
+	}
 
-	// Get jobs where backupdef_name = kubebackup name
-	// sort: -start_time
-	// page: 1
-	// max_results: 5
-	// where: {"type":{"$nin":["DELETE_BACKUP","AWSRDS_BACKUP_DELETE","AGENT_UPDATE"]}}
+	resp.Diagnostics.AddWarning("Job state", jobStatusResp.State)
 
+	if jobStatusResp.State != "COMPLETED" {
+		resp.Diagnostics.AddWarning("Job finished in an incomplete state", fmt.Sprint("Job %w finished in state %s. This means the job completed successfully, but some resources might have been missed. Check logs in the CloudCasa UI for more information.", jobResp.Id, jobStatusResp.State))
+	}
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Read refreshes the Terraform state with the latest data.

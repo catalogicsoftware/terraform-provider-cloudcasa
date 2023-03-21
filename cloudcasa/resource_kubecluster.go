@@ -245,6 +245,7 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 // Read refreshes the Terraform state with the latest data.
 // TODO: if auto-install is enabled, we should check the status on each refresh
 // and apply the agent with current kubeconfig if not active.
+// TODO: CHECK STATUS!
 func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Get current state
 	var state kubeclusterResourceModel
