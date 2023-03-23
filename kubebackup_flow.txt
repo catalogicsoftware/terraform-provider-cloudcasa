@@ -236,3 +236,68 @@ casa list jobs --where backupdef_name test_terraform_kubebackup
       "total":1
    }
 }
+
+
+KUBEBACKUP GET
+{
+    "_id": "6419f11f20796ca01d3fa25f",
+    "name": "test_terraform_kubebackup",
+    "cluster": "6419d16613141aea05fb1235",
+    "trigger_type": "ADHOC",
+    "source": {
+        "all_namespaces": true,
+        "snapshotPersistentVolumes": false,
+        "snapshot_longhorn": true
+    },
+    "pause": false,
+    "_updated": "Tue, 21 Mar 2023 18:02:28 GMT",
+    "_created": "Tue, 21 Mar 2023 18:02:07 GMT",
+    "org_id": "5fa0215bca6a6290073377d4",
+    "cc_user_email": "jgarner@catalogicsoftware.com",
+    "_etag": "3db642ba3578a780c690d85b0fb479172adf96c2",
+    "status": {
+        "jobs": [
+            {
+                "jobid": "6419f121553d8f8d2d7083c5",
+                "state": "COMPLETED",
+                "message": "Backup Successful. "
+            }
+        ],
+        "last_job_run_time": 1679421729
+    },
+    "_links": {
+        "self": {
+            "title": "Kubebackup",
+            "href": "/v1/kubebackups/6419f11f20796ca01d3fa25f"
+        },
+        "related": {
+            "cluster": {
+                "title": "Kubecluster",
+                "href": "/v1/kubeclusters/6419d16613141aea05fb1235"
+            }
+        },
+        "parent": {
+            "title": "home",
+            "href": "/"
+        },
+        "collection": {
+            "title": "/v1/kubebackups",
+            "href": "v1/kubebackups?include_user_id=True"
+        }
+    }
+}
+
+	// Id                types.String `tfsdk:"id"`
+	// Name              types.String `tfsdk:"name"`
+	// Kubecluster_id    types.String `tfsdk:"kubecluster_id"`
+	// Policy_id         types.String `tfsdk:"policy_id"`
+	// Pre_hooks         types.Set    `tfsdk:"pre_hooks"`
+	// Post_hooks        types.Set    `tfsdk:"post_hooks"`
+	// Run               types.Bool   `tfsdk:"run_on_apply"`
+	// Retention         types.Int64  `tfsdk:"retention"`
+	// All_namespaces    types.Bool   `tfsdk:"all_namespaces"`
+	// Select_namespaces types.Set    `tfsdk:"select_namespaces"`
+	// Snapshot_pvs      types.Bool   `tfsdk:"snapshot_persistent_volumes"`
+	// Updated           types.String `tfsdk:"updated"`
+	// Created           types.String `tfsdk:"created"`
+	// Etag              types.String `tfsdk:"etag"`

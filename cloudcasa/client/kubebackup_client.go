@@ -8,71 +8,53 @@ import (
 	"time"
 )
 
+// TODO: should we use omitempty for json fields?
+
 // CreateKubebackupReq maps the request body for kubebackups
 type CreateKubebackupReq struct {
-	Name         string                    `json:"name"`
-	Cluster      string                    `json:"cluster"`
-	Policy       string                    `json:"policy,omitempty"`
-	Pre_hooks    []string                  `json:"pre_hooks,omitempty"`
-	Post_hooks   []string                  `json:"post_hooks,omitempty"`
-	Trigger_type string                    `json:"trigger_type"`
-	Source       CreateKubebackupReqSource `json:"source"`
+	Name         string           `json:"name"`
+	Cluster      string           `json:"cluster"`
+	Policy       string           `json:"policy"`
+	Pre_hooks    []KubebackupHook `json:"pre_hooks"`
+	Post_hooks   []KubebackupHook `json:"post_hooks"`
+	Trigger_type string           `json:"trigger_type"`
+	Source       KubebackupSource `json:"source"`
 }
 
-// CreateKubebackupResp maps the POST response received from CloudCasa
-type CreateKubebackupResp struct {
-	Id           string   `json:"_id"`
-	Name         string   `json:"name"`
-	Cluster      string   `json:"cluster"`
-	Policy       string   `json:"policy,omitempty"`
-	Pre_hooks    []string `json:"pre_hooks"`
-	Post_hooks   []string `json:"post_hooks"`
-	Trigger_type string   `json:"trigger_type"`
-	Updated      string   `json:"_updated"`
-	Created      string   `json:"_created"`
-	Etag         string   `json:"_etag"`
-	Source       CreateKubebackupReqSource
-	// Pause        bool     `json:"pause"`
-}
-
-// CreateKubebackupReqSource maps the 'source' dict for the request body
-type CreateKubebackupReqSource struct {
-	All_namespaces            bool     `json:"all_namespaces"`
-	SnapshotPersistentVolumes bool     `json:"snapshotPersistentVolumes"`
-	Namespaces                []string `json:"namespaces,omitempty"`
+type KubebackupHook struct {
+	Template   bool     `json:"template"`
+	Namespaces []string `json:"namespaces"`
+	Hooks      []string `json:"hooks"`
 }
 
 // GetKubebackupResp maps the GET response received from CloudCasa
 type GetKubebackupResp struct {
-	Id            string `json:"_id"`
-	Name          string `json:"name"`
-	Cc_user_email string `json:"cc_user_email"`
-	Updated       string `json:"_updated"`
-	Created       string `json:"_created"`
-	Etag          string `json:"_etag"`
-	Org_id        string `json:"org_id"`
+	Id           string           `json:"_id"`
+	Name         string           `json:"name"`
+	Cluster      string           `json:"cluster"`
+	Policy       string           `json:"policy"`
+	Pre_hooks    []KubebackupHook `json:"pre_hooks"`
+	Post_hooks   []KubebackupHook `json:"post_hooks"`
+	Trigger_type string           `json:"trigger_type"`
+	Updated      string           `json:"_updated"`
+	Created      string           `json:"_created"`
+	Etag         string           `json:"_etag"`
+	Source       KubebackupSource `json:"source"`
+	Status       KubebackupStatus `json:"status"`
+	Org_id       string           `json:"org_id"`
 }
 
-// TODO: what do we need to return from run response?
-type RunKubebackupResp struct {
-	Id      string                  `json:"_id"`
-	Cluster string                  `json:"cluster"`
-	Name    string                  `json:"name"`
-	Pause   bool                    `json:"pause"`
-	Status  RunKubebackupRespStatus `json:"status"`
-	Updated string                  `json:"_updated"`
-	Created string                  `json:"_created"`
-	Etag    string                  `json:"_etag"`
-}
-
-type RunKubebackupRespStatus struct {
+type KubebackupStatus struct {
 	LastJobRunTime int64               `json:"last_job_run_time"`
 	Jobs           []map[string]string `json:"jobs"`
 }
 
-type JobStatus struct {
+// KubebackupSource maps the 'source' dict for the request body
+type KubebackupSource struct {
+	All_namespaces            bool     `json:"all_namespaces"`
+	SnapshotPersistentVolumes bool     `json:"snapshotPersistentVolumes"`
+	Namespaces                []string `json:"namespaces"`
 }
-
 type GetJobsResp struct {
 	Items []GetJobResp `json:"_items"`
 }
@@ -91,7 +73,7 @@ type GetJobResp struct {
 	Etag       string   `json:"_etag"`
 }
 
-func (c *Client) RunKubebackup(backupId string, backupType string, retention int) (*RunKubebackupResp, error) {
+func (c *Client) RunKubebackup(backupId string, backupType string, retention int) (*GetKubebackupResp, error) {
 	// Build request body
 	reqBody := map[string]interface{}{
 		"retention": map[string]int{
@@ -119,7 +101,7 @@ func (c *Client) RunKubebackup(backupId string, backupType string, retention int
 		return nil, err
 	}
 
-	var runResp RunKubebackupResp
+	var runResp GetKubebackupResp
 	if err := json.Unmarshal(runRespBody, &runResp); err != nil {
 		return nil, err
 	}
@@ -226,7 +208,7 @@ func (c *Client) WatchJobUntilComplete(jobId string) (*GetJobResp, error) {
 }
 
 // CreateKubebackup creates a resource in CloudCasa and returns a struct with important fields
-func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*CreateKubebackupResp, error) {
+func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*GetKubebackupResp, error) {
 	// Create rest request struct
 	createReqBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -246,7 +228,7 @@ func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*CreateKubebacku
 		return nil, err
 	}
 
-	var createRespBody CreateKubebackupResp
+	var createRespBody GetKubebackupResp
 	if err := json.Unmarshal(createResp, &createRespBody); err != nil {
 		return nil, err
 	}

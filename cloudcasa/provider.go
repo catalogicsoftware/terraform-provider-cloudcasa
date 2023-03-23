@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // Ensure the implementation satisfies the expected interfaces
@@ -131,4 +132,13 @@ func (p *cloudcasaProvider) Resources(_ context.Context) []func() resource.Resou
 		NewResourceKubecluster,
 		NewResourceKubebackup,
 	}
+}
+
+// TODO: more util functions, move these to another file
+func ConvertTfStringList(tfList []basetypes.StringValue) []string {
+	var stringList []string
+	for _, v := range tfList {
+		stringList = append(stringList, v.ValueString())
+	}
+	return stringList
 }

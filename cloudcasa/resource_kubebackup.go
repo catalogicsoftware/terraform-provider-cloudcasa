@@ -29,27 +29,27 @@ type resourceKubebackup struct {
 
 // kubebackupResourceModel maps the resource schema data.
 type kubebackupResourceModel struct {
-	Id                types.String `tfsdk:"id"`
-	Name              types.String `tfsdk:"name"`
-	Kubecluster_id    types.String `tfsdk:"kubecluster_id"`
-	Policy_id         types.String `tfsdk:"policy_id"`
-	Pre_hooks         types.Set    `tfsdk:"pre_hooks"`
-	Post_hooks        types.Set    `tfsdk:"post_hooks"`
-	Run               types.Bool   `tfsdk:"run_on_apply"`
-	Retention         types.Int64  `tfsdk:"retention"`
-	All_namespaces    types.Bool   `tfsdk:"all_namespaces"`
-	Select_namespaces types.Set    `tfsdk:"select_namespaces"`
-	Snapshot_pvs      types.Bool   `tfsdk:"snapshot_persistent_volumes"`
-	Updated           types.String `tfsdk:"updated"`
-	Created           types.String `tfsdk:"created"`
-	Etag              types.String `tfsdk:"etag"`
+	Id                types.String          `tfsdk:"id"`
+	Name              types.String          `tfsdk:"name"`
+	Kubecluster_id    types.String          `tfsdk:"kubecluster_id"`
+	Policy_id         types.String          `tfsdk:"policy_id"`
+	Pre_hooks         []kubebackupHookModel `tfsdk:"pre_hooks"`
+	Post_hooks        []kubebackupHookModel `tfsdk:"post_hooks"`
+	Run               types.Bool            `tfsdk:"run_on_apply"`
+	Retention         types.Int64           `tfsdk:"retention"`
+	All_namespaces    types.Bool            `tfsdk:"all_namespaces"`
+	Select_namespaces types.Set             `tfsdk:"select_namespaces"`
+	Snapshot_pvs      types.Bool            `tfsdk:"snapshot_persistent_volumes"`
+	Updated           types.String          `tfsdk:"updated"`
+	Created           types.String          `tfsdk:"created"`
+	Etag              types.String          `tfsdk:"etag"`
 	// Pause             types.Bool   `tfsdk:"pause"`
 }
 
-// API Response Objects
-type CreateKubebackupResp struct {
-	Id   string `json:"_id"`
-	Name string `json:"name"`
+type kubebackupHookModel struct {
+	Template   types.Bool     `tfsdk:"template"`
+	Namespaces []types.String `tfsdk:"namespaces"`
+	Hooks      []types.String `tfsdk:"hooks"`
 }
 
 // Metadata returns the data source type name.
@@ -76,13 +76,41 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 			"policy_id": schema.StringAttribute{
 				Optional: true,
 			},
-			"pre_hooks": schema.SetAttribute{
-				Optional:    true,
-				ElementType: types.StringType,
+			"pre_hooks": schema.ListNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"template": schema.BoolAttribute{
+							Required: true,
+						},
+						"namespaces": schema.SetAttribute{
+							Required:    true,
+							ElementType: types.StringType,
+						},
+						"hooks": schema.SetAttribute{
+							Required:    true,
+							ElementType: types.StringType,
+						},
+					},
+				},
 			},
-			"post_hooks": schema.SetAttribute{
-				Optional:    true,
-				ElementType: types.StringType,
+			"post_hooks": schema.ListNestedAttribute{
+				Optional: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"template": schema.BoolAttribute{
+							Required: true,
+						},
+						"namespaces": schema.SetAttribute{
+							Required:    true,
+							ElementType: types.StringType,
+						},
+						"hooks": schema.SetAttribute{
+							Required:    true,
+							ElementType: types.StringType,
+						},
+					},
+				},
 			},
 			// run_on_apply will determine trigger_type
 			// TODO: implement /run API on every apply by forcing GET
@@ -149,7 +177,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	// Build 'source' dict of request body from plan
-	reqBodySource := cloudcasa.CreateKubebackupReqSource{
+	reqBodySource := cloudcasa.KubebackupSource{
 		All_namespaces:            plan.All_namespaces.ValueBool(),
 		SnapshotPersistentVolumes: plan.Snapshot_pvs.ValueBool(),
 	}
@@ -168,11 +196,27 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	if !plan.Policy_id.IsNull() {
 		reqBody.Policy = plan.Policy_id.ValueString()
 	}
-	if !plan.Pre_hooks.IsNull() {
-		plan.Pre_hooks.ElementsAs(ctx, reqBody.Pre_hooks, false)
+
+	// For each Hook in pre_hooks, convert string values and append
+	if plan.Pre_hooks != nil {
+		for _, v := range plan.Pre_hooks {
+			thisHook := cloudcasa.KubebackupHook{
+				Template:   v.Template.ValueBool(),
+				Namespaces: ConvertTfStringList(v.Namespaces),
+				Hooks:      ConvertTfStringList(v.Hooks),
+			}
+			reqBody.Pre_hooks = append(reqBody.Pre_hooks, thisHook)
+		}
 	}
-	if !plan.Post_hooks.IsNull() {
-		plan.Post_hooks.ElementsAs(ctx, reqBody.Post_hooks, false)
+	if plan.Post_hooks != nil {
+		for _, v := range plan.Post_hooks {
+			thisHook := cloudcasa.KubebackupHook{
+				Template:   v.Template.ValueBool(),
+				Namespaces: ConvertTfStringList(v.Namespaces),
+				Hooks:      ConvertTfStringList(v.Hooks),
+			}
+			reqBody.Post_hooks = append(reqBody.Post_hooks, thisHook)
+		}
 	}
 
 	// If retention is set, check that run_on_apply is true
@@ -200,6 +244,12 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		}
 	}
 
+	// DEBUG
+	resp.Diagnostics.AddWarning(
+		"pv option before create",
+		fmt.Sprint(reqBody.Source.SnapshotPersistentVolumes),
+	)
+
 	// Create resource in CloudCasa
 	createResp, err := r.Client.CreateKubebackup(reqBody)
 	if err != nil {
@@ -209,6 +259,12 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		)
 		return
 	}
+
+	// DEBUG
+	resp.Diagnostics.AddWarning(
+		"pv option after create",
+		fmt.Sprint(createResp.Source.SnapshotPersistentVolumes),
+	)
 
 	// Set fields in plan
 	plan.Id = types.StringValue(createResp.Id)
@@ -301,6 +357,68 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 
 // Read refreshes the Terraform state with the latest data.
 func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	// Get current state
+	var state kubebackupResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Get refreshed Kubecluster from CloudCasa
+	kubebackup, err := r.Client.GetKubebackup(state.Id.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting Kuebbackup from CloudCasa",
+			"Could not read Kubebackup with ID "+state.Id.ValueString()+" :"+err.Error(),
+		)
+		return
+	}
+
+	// Overwrite values with refreshed state
+	// Set fields in plan
+	state.Id = types.StringValue(kubebackup.Id)
+	state.Name = types.StringValue(kubebackup.Name)
+	state.Kubecluster_id = types.StringValue(kubebackup.Cluster)
+
+	// Check if Optional values are Null
+	if kubebackup.Policy == "" {
+		state.Policy_id = types.StringNull()
+	} else {
+		state.Policy_id = types.StringValue(kubebackup.Policy)
+	}
+
+	// convert list values
+	// preHooksList, diags := types.ListValueFrom(ctx, types.StringType, kubebackup.Pre_hooks)
+	// resp.Diagnostics.Append(diags...)
+	// state.Pre_hooks = basetypes.SetValue(preHooksList)
+
+	// postHooksList, diags := types.ListValueFrom(ctx, types.StringType, kubebackup.Post_hooks)
+	// resp.Diagnostics.Append(diags...)
+	// state.Post_hooks = basetypes.SetValue(postHooksList)
+
+	// check for errors from list conversion
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Job runtime options are not read from API:
+	//state.Run
+	//state.Retention
+	//state.All_namespaces
+	//state.Select_namespaces
+	//state.Snapshot_pvs
+
+	state.Updated = types.StringValue(kubebackup.Updated)
+	state.Created = types.StringValue(kubebackup.Created)
+	state.Etag = types.StringValue(kubebackup.Etag)
+
+	// Set refreshed state
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
