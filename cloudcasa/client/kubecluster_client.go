@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os/exec"
+	"time"
 )
 
 // CreateKubeclusterResp maps the POST response received from CloudCasa
@@ -139,4 +141,31 @@ func (c *Client) DeleteKubecluster(kubeclusterId string) error {
 	}
 
 	return nil
+}
+
+// Apply kubeagent spec to the kubecluster using kubectl and wait 5min for ACTIVE state
+// Assumes Kubeconfig is set
+// TODO: Validate kubeconfig
+func (c *Client) ApplyKubeagent(clusterId string, agentUrl string) error {
+	kubectlCmd := exec.Command("kubectl", "apply", "-f", agentUrl)
+	_, err := kubectlCmd.Output()
+	if err != nil {
+		return err
+	}
+
+	// Now wait for cluster to be ACTIVE
+	// Wait 5min?
+	for i := 1; i < 60; i++ {
+		getKubeclusterResp, err := c.GetKubecluster(clusterId)
+		if err != nil {
+			return fmt.Errorf("error checking Kubecluster status after applying Agent manifest; %w", err)
+		}
+
+		if getKubeclusterResp.Status.State == "ACTIVE" {
+			return nil
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	return fmt.Errorf("timed out waiting for cluster to reach ACTIVE state")
 }

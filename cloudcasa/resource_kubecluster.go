@@ -2,7 +2,6 @@ package cloudcasa
 
 import (
 	"context"
-	"os/exec"
 	"time"
 
 	cloudcasa "terraform-provider-cloudcasa/cloudcasa/client"
@@ -192,43 +191,13 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	// Set agent url from response
 	plan.Agent_url = types.StringValue(kubeclusterStatus.Agent_url)
 
-	// TODO: add tip to make sure kubeconfig env var is set?
-	// OR we can accept kubeconfig as an input option?
-	kubectlCmd := exec.Command("kubectl", "apply", "-f", kubeclusterStatus.Agent_url)
-	_, err = kubectlCmd.Output()
+	// Apply agent spec and wait for ACTIVE
+	err = r.Client.ApplyKubeagent(createResp.Id, kubeclusterStatus.Agent_url)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Failed to apply kubeagent manifest",
+			"CloudCasa agent installation failed",
 			err.Error(),
 		)
-		return
-	}
-
-	// Now wait for cluster to be ACTIVE
-	// Wait 5min?
-	for i := 1; i < 60; i++ {
-		getKubeclusterResp, err := r.Client.GetKubecluster(createResp.Id)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error checking Kubecluster status after applying Agent manifest",
-				err.Error(),
-			)
-			return
-		}
-		kubeclusterStatus = getKubeclusterResp.Status
-		if kubeclusterStatus.State == "ACTIVE" {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
-
-	// Check if state was set to ACTIVE
-	if kubeclusterStatus.State != "ACTIVE" {
-		resp.Diagnostics.AddError(
-			"CloudCasa Agent installation failed",
-			"Timed out waiting for cluster to reach ACTIVE state: "+err.Error(),
-		)
-		return
 	}
 
 	// Save state before returning
@@ -263,6 +232,19 @@ func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest
 			"Could not read Kubecluster with ID "+state.Id.ValueString()+" :"+err.Error(),
 		)
 		return
+	}
+
+	// Check kubecluster status
+	// if auto_install is true, we should apply kubeagent spec if status is bad
+	if getKubeclusterResp.Status.State != "ACTIVE" {
+		err = r.Client.ApplyKubeagent(getKubeclusterResp.Id, getKubeclusterResp.Status.Agent_url)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error installing Kubeagent on existing cluster",
+				err.Error(),
+			)
+			return
+		}
 	}
 
 	// Overwrite values with refreshed state

@@ -301,3 +301,76 @@ KUBEBACKUP GET
 	// Updated           types.String `tfsdk:"updated"`
 	// Created           types.String `tfsdk:"created"`
 	// Etag              types.String `tfsdk:"etag"`
+
+Final offload + backup
+kubebackup
+{
+    "source": {
+        "all_namespaces": true,
+        "snapshotPersistentVolumes": true,
+        "included_resources": [],
+        "excluded_namespaces": [],
+        "snapshot_longhorn": true
+    },
+    "cluster": "64874e939be401ba3bbe8f2d",
+    "pre_hooks": [],
+    "post_hooks": [],
+    "name": "offload",
+    "trigger_type": "ADHOC",
+    "pause": false,
+    "_updated": "Mon, 12 Jun 2023 17:13:39 GMT",
+    "_created": "Mon, 12 Jun 2023 17:13:39 GMT",
+    "cc_user_email": "jgarner@catalogicsoftware.com",
+    "_etag": "c8624ae869b229af439e9c8061a0e1858e1ca898",
+    "_id": "6487524381790bc71b60ae2f",
+    "_links": {
+        "self": {
+            "title": "Kubebackup",
+            "href": "/v1/kubebackups/6487524381790bc71b60ae2f"
+        },
+        "related": {
+            "cluster": {
+                "title": "Kubecluster",
+                "href": "/v1/kubeclusters/64874e939be401ba3bbe8f2d"
+            }
+        }
+    },
+    "_status": "OK"
+}
+kubeoffload
+{
+    "delete_snapshots": true,
+    "options": {},
+    "trigger_type": "ADHOC",
+    "run_backup": false,
+    "name": "offload",
+    "backupdef": "6487524381790bc71b60ae2f",
+    "skip_live_copy": false,
+    "snapshot_longhorn": true,
+    "pause": false,
+    "_updated": "Mon, 12 Jun 2023 17:13:39 GMT",
+    "_created": "Mon, 12 Jun 2023 17:13:39 GMT",
+    "cc_user_email": "jgarner@catalogicsoftware.com",
+    "cluster": "64874e939be401ba3bbe8f2d",
+    "_etag": "6b049b1038fccd1d85aefd43551b65e437bdbf8a",
+    "_id": "6487524356884001a9148cec",
+    "_links": {
+        "self": {
+            "title": "Kubeoffload",
+            "href": "/v1/kubeoffloads/6487524356884001a9148cec"
+        },
+        "related": {
+            "backupdef": {
+                "title": "Kubebackup",
+                "href": "/v1/kubebackups/6487524381790bc71b60ae2f"
+            },
+            "cluster": {
+                "title": "Kubecluster",
+                "href": "/v1/kubeclusters/64874e939be401ba3bbe8f2d"
+            }
+        }
+    },
+    "_status": "OK"
+}
+
+

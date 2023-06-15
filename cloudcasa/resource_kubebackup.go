@@ -38,8 +38,10 @@ type kubebackupResourceModel struct {
 	Run               types.Bool            `tfsdk:"run_on_apply"`
 	Retention         types.Int64           `tfsdk:"retention"`
 	All_namespaces    types.Bool            `tfsdk:"all_namespaces"`
-	Select_namespaces types.Set             `tfsdk:"select_namespaces"`
+	Select_namespaces []types.String        `tfsdk:"select_namespaces"`
 	Snapshot_pvs      types.Bool            `tfsdk:"snapshot_persistent_volumes"`
+	Copy_pvs          types.Bool            `tfsdk:"copy_persistent_volumes"`
+	Delete_snapshots  types.Bool            `tfsdk:"delete_snapshot_after_copy"`
 	Updated           types.String          `tfsdk:"updated"`
 	Created           types.String          `tfsdk:"created"`
 	Etag              types.String          `tfsdk:"etag"`
@@ -144,6 +146,12 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 			"etag": schema.StringAttribute{
 				Computed: true,
 			},
+			"copy_persistent_volumes": schema.BoolAttribute{
+				Optional: true,
+			},
+			"delete_snapshot_after_copy": schema.BoolAttribute{
+				Optional: true,
+			},
 		},
 	}
 }
@@ -168,24 +176,41 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	// Validate namespace option selections
-	if plan.All_namespaces.ValueBool() && !plan.Select_namespaces.IsNull() {
+	if plan.All_namespaces.ValueBool() && plan.Select_namespaces != nil {
 		resp.Diagnostics.AddError(
 			"Invalid Kubebackup Definition",
-			"Set all_namespaces to true to copy every namespace OR define a set of namespaces to copy with the select_namespace attribute.",
+			"Set all_namespaces to true to snapshot every namespace OR define a set of namespaces to snapshot with the select_namespaces attribute.",
 		)
 		return
 	}
 
-	// Build 'source' dict of request body from plan
+	if !plan.All_namespaces.ValueBool() && plan.Select_namespaces == nil {
+		resp.Diagnostics.AddError(
+			"Invalid Kubebackup Definition",
+			"Define a set of namespaces to snapshot with the select_namespaces attribute, or set all_namespaces to true.",
+		)
+		return
+	}
+
+	// Validate Copy options
+	if !plan.Copy_pvs.ValueBool() && plan.Delete_snapshots.ValueBool() {
+		resp.Diagnostics.AddError(
+			"Invalid Copy Options",
+			"delete_snapshot_after_copy requires copy_persistent_volumes to be true.",
+		)
+		return
+	}
+
+	// Build 'source' dict of kubebackup body from plan
 	reqBodySource := cloudcasa.KubebackupSource{
 		All_namespaces:            plan.All_namespaces.ValueBool(),
 		SnapshotPersistentVolumes: plan.Snapshot_pvs.ValueBool(),
 	}
-	if !plan.Select_namespaces.IsNull() {
-		plan.Select_namespaces.ElementsAs(ctx, reqBodySource.Namespaces, false)
+	if plan.Select_namespaces != nil {
+		reqBodySource.Namespaces = ConvertTfStringList(plan.Select_namespaces)
 	}
 
-	// Build main request body from plan
+	// Build main kubebackup body from plan
 	reqBody := cloudcasa.CreateKubebackupReq{
 		Name:    plan.Name.ValueString(),
 		Cluster: plan.Kubecluster_id.ValueString(),
@@ -250,7 +275,30 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		fmt.Sprint(reqBody.Source.SnapshotPersistentVolumes),
 	)
 
-	// Create resource in CloudCasa
+	// If Copy options are present, initialize kubeoffload body
+	var copyReqBody cloudcasa.CreateKubeoffloadReq
+	if plan.Copy_pvs.ValueBool() {
+		// Build main kubebackup body from plan
+		copyReqBody.Name = plan.Name.ValueString()
+		copyReqBody.Cluster = plan.Kubecluster_id.ValueString()
+		copyReqBody.Delete_snapshots = plan.Delete_snapshots.ValueBool()
+
+		// Check optional kubeoffload fields
+		if !plan.Policy_id.IsNull() {
+			copyReqBody.Policy = plan.Policy_id.ValueString()
+		}
+
+		if plan.Run.ValueBool() {
+			copyReqBody.Trigger_type = "ADHOC"
+			copyReqBody.Run_backup = true
+		} else {
+			copyReqBody.Trigger_type = "SCHEDULED"
+			copyReqBody.Run_backup = false
+		}
+
+	}
+
+	// Create kubebackup resource in CloudCasa
 	createResp, err := r.Client.CreateKubebackup(reqBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -260,11 +308,10 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	// DEBUG
-	resp.Diagnostics.AddWarning(
-		"pv option after create",
-		fmt.Sprint(createResp.Source.SnapshotPersistentVolumes),
-	)
+	// Set backupdef ID for kubeoffload
+	if plan.Copy_pvs.ValueBool() {
+		copyReqBody.Backupdef = createResp.Id
+	}
 
 	// Set fields in plan
 	plan.Id = types.StringValue(createResp.Id)
@@ -280,11 +327,11 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	// Select options for backup
-	// tODO: Handle offloads, not supported rn
+	// TODO: Handle offloads, not supported rn
 	backupType := "kubebackups"
-	if createResp.Source.SnapshotPersistentVolumes {
-		backupType = "kubeoffloads"
-	}
+	// if createResp.Source.SnapshotPersistentVolumes {
+	// 	backupType = "kubeoffloads"
+	// }
 
 	var retentionDays int
 	if plan.Retention.IsNull() {

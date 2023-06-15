@@ -14,11 +14,23 @@ import (
 type CreateKubebackupReq struct {
 	Name         string           `json:"name"`
 	Cluster      string           `json:"cluster"`
-	Policy       string           `json:"policy"`
-	Pre_hooks    []KubebackupHook `json:"pre_hooks"`
-	Post_hooks   []KubebackupHook `json:"post_hooks"`
+	Policy       string           `json:"policy,omitempty"`
+	Pre_hooks    []KubebackupHook `json:"pre_hooks,omitempty"`
+	Post_hooks   []KubebackupHook `json:"post_hooks,omitempty"`
 	Trigger_type string           `json:"trigger_type"`
 	Source       KubebackupSource `json:"source"`
+}
+
+type CreateKubeoffloadReq struct {
+	Name             string `json:"name"`
+	Cluster          string `json:"cluster"`
+	Policy           string `json:"policy,omitempty"`
+	Trigger_type     string `json:"trigger_type"`
+	Backupdef        string `json:"backupdef"`
+	Delete_snapshots bool   `json:"delete_snapshots"`
+	Run_backup       bool   `json:"run_backup"`
+	// Skip_live_copy    bool             `json:"skip_live_copy"`
+	// Snapshot_longhorn bool             `json:"snapshot_longhorn"`
 }
 
 type KubebackupHook struct {
@@ -53,7 +65,7 @@ type KubebackupStatus struct {
 type KubebackupSource struct {
 	All_namespaces            bool     `json:"all_namespaces"`
 	SnapshotPersistentVolumes bool     `json:"snapshotPersistentVolumes"`
-	Namespaces                []string `json:"namespaces"`
+	Namespaces                []string `json:"namespaces,omitempty"`
 }
 type GetJobsResp struct {
 	Items []GetJobResp `json:"_items"`
