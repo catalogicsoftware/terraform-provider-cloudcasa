@@ -42,6 +42,7 @@ type kubebackupResourceModel struct {
 	Snapshot_pvs      types.Bool            `tfsdk:"snapshot_persistent_volumes"`
 	Copy_pvs          types.Bool            `tfsdk:"copy_persistent_volumes"`
 	Delete_snapshots  types.Bool            `tfsdk:"delete_snapshot_after_copy"`
+	Kubeoffload_id    types.String          `tfsdk:"kubeoffload_id"`
 	Updated           types.String          `tfsdk:"updated"`
 	Created           types.String          `tfsdk:"created"`
 	Etag              types.String          `tfsdk:"etag"`
@@ -152,6 +153,10 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 			"delete_snapshot_after_copy": schema.BoolAttribute{
 				Optional: true,
 			},
+			"kubeoffload_id": schema.StringAttribute{
+				Computed: true,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -249,7 +254,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		if !plan.Run.ValueBool() {
 			resp.Diagnostics.AddError(
 				"Invalid Kubebackup Definition",
-				"Retention is set but backup job will not run. run_on_apply must be true to specify retention outside of a policy.",
+				"Retention is set but backup job will not run. run_on_apply must be true to run the job without selecting a policy.",
 			)
 		}
 	}
@@ -278,7 +283,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	// If Copy options are present, initialize kubeoffload body
 	var copyReqBody cloudcasa.CreateKubeoffloadReq
 	if plan.Copy_pvs.ValueBool() {
-		// Build main kubebackup body from plan
+		// Build kubeoffload body
 		copyReqBody.Name = plan.Name.ValueString()
 		copyReqBody.Cluster = plan.Kubecluster_id.ValueString()
 		copyReqBody.Delete_snapshots = plan.Delete_snapshots.ValueBool()
@@ -308,11 +313,6 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	// Set backupdef ID for kubeoffload
-	if plan.Copy_pvs.ValueBool() {
-		copyReqBody.Backupdef = createResp.Id
-	}
-
 	// Set fields in plan
 	plan.Id = types.StringValue(createResp.Id)
 	plan.Created = types.StringValue(createResp.Created)
@@ -321,18 +321,46 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 
 	diags = resp.State.Set(ctx, plan)
 
+	var createKubeoffloadResp *cloudcasa.Kubeoffload
+
+	// Set backupdef ID for kubeoffload
+	if plan.Copy_pvs.ValueBool() {
+		copyReqBody.Backupdef = createResp.Id
+		createKubeoffloadResp, err = r.Client.CreateKubeoffload(copyReqBody)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Creating Kubeoffload",
+				err.Error(),
+			)
+			return
+		}
+
+		plan.Kubeoffload_id = types.StringValue(createKubeoffloadResp.Id)
+
+		// Append copydef ID to original kubebackup request
+		reqBody.Copydef = createKubeoffloadResp.Id
+
+		// Update kubebackup resource in CloudCasa
+		putResp, err := r.Client.UpdateKubebackup(createResp.Id, reqBody, createResp.Etag)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating Kubebackup",
+				err.Error(),
+			)
+			return
+		}
+
+		// Update fields in plan
+		plan.Updated = types.StringValue(putResp.Updated)
+		plan.Etag = types.StringValue(putResp.Etag)
+	}
+
 	// If run_on_apply is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
 		return
 	}
 
 	// Select options for backup
-	// TODO: Handle offloads, not supported rn
-	backupType := "kubebackups"
-	// if createResp.Source.SnapshotPersistentVolumes {
-	// 	backupType = "kubeoffloads"
-	// }
-
 	var retentionDays int
 	if plan.Retention.IsNull() {
 		retentionDays = 7
@@ -340,17 +368,35 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		retentionDays = int(plan.Retention.ValueInt64())
 	}
 
-	// Run backup
-	runResp, err := r.Client.RunKubebackup(createResp.Id, backupType, retentionDays)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Running Kubebackup",
-			err.Error(),
-		)
-		return
+	var backupJobId string
+	var lastJobRunTime int64
+
+	// Run Offload or Backup
+	if plan.Copy_pvs.ValueBool() {
+		runResp, err := r.Client.RunKubeoffload(createKubeoffloadResp.Id, retentionDays)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Running Kubeoffload",
+				err.Error(),
+			)
+			return
+		}
+		backupJobId = runResp.Backupdef
+		lastJobRunTime = runResp.Status.LastJobRunTime
+	} else {
+		runResp, err := r.Client.RunKubebackup(createResp.Id, retentionDays)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error Running Kubebackup",
+				err.Error(),
+			)
+			return
+		}
+		backupJobId = runResp.Id
+		lastJobRunTime = runResp.Status.LastJobRunTime
 	}
 
-	resp.Diagnostics.AddWarning("Received runResp. Job should be running...", runResp.Id)
+	resp.Diagnostics.AddWarning("Received runResp. Job should be running...", backupJobId)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -364,10 +410,10 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	// first job since that timestamp is the correct one.
 
 	// DEBUG
-	resp.Diagnostics.AddWarning("lastJobRunTime", fmt.Sprint(runResp.Status.LastJobRunTime))
+	resp.Diagnostics.AddWarning("lastJobRunTime", fmt.Sprint(lastJobRunTime))
 
 	// Get Job ID
-	jobResp, err := r.Client.GetJobFromBackupdef(runResp.Id, runResp.Status.LastJobRunTime)
+	jobResp, err := r.Client.GetJobFromBackupdef(backupJobId, lastJobRunTime)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error waiting for backup job to start",
@@ -416,7 +462,7 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 	kubebackup, err := r.Client.GetKubebackup(state.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting Kuebbackup from CloudCasa",
+			"Error getting Kubebackup from CloudCasa",
 			"Could not read Kubebackup with ID "+state.Id.ValueString()+" :"+err.Error(),
 		)
 		return

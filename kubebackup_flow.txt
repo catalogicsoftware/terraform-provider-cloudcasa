@@ -337,6 +337,7 @@ kubebackup
     },
     "_status": "OK"
 }
+
 kubeoffload
 {
     "delete_snapshots": true,
@@ -348,6 +349,7 @@ kubeoffload
     "skip_live_copy": false,
     "snapshot_longhorn": true,
     "pause": false,
+    "policy": policyid,
     "_updated": "Mon, 12 Jun 2023 17:13:39 GMT",
     "_created": "Mon, 12 Jun 2023 17:13:39 GMT",
     "cc_user_email": "jgarner@catalogicsoftware.com",

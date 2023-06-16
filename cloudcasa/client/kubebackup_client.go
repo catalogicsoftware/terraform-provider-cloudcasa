@@ -18,38 +18,27 @@ type CreateKubebackupReq struct {
 	Pre_hooks    []KubebackupHook `json:"pre_hooks,omitempty"`
 	Post_hooks   []KubebackupHook `json:"post_hooks,omitempty"`
 	Trigger_type string           `json:"trigger_type"`
+	Copydef      string           `json:"copydef,omitempty"`
 	Source       KubebackupSource `json:"source"`
 }
-
-type CreateKubeoffloadReq struct {
-	Name             string `json:"name"`
-	Cluster          string `json:"cluster"`
-	Policy           string `json:"policy,omitempty"`
-	Trigger_type     string `json:"trigger_type"`
-	Backupdef        string `json:"backupdef"`
-	Delete_snapshots bool   `json:"delete_snapshots"`
-	Run_backup       bool   `json:"run_backup"`
-	// Skip_live_copy    bool             `json:"skip_live_copy"`
-	// Snapshot_longhorn bool             `json:"snapshot_longhorn"`
-}
-
 type KubebackupHook struct {
 	Template   bool     `json:"template"`
 	Namespaces []string `json:"namespaces"`
 	Hooks      []string `json:"hooks"`
 }
 
-// GetKubebackupResp maps the GET response received from CloudCasa
-type GetKubebackupResp struct {
+// Kubebackup maps the GET response received from CloudCasa
+type Kubebackup struct {
 	Id           string           `json:"_id"`
 	Name         string           `json:"name"`
 	Cluster      string           `json:"cluster"`
-	Policy       string           `json:"policy"`
-	Pre_hooks    []KubebackupHook `json:"pre_hooks"`
-	Post_hooks   []KubebackupHook `json:"post_hooks"`
-	Trigger_type string           `json:"trigger_type"`
-	Updated      string           `json:"_updated"`
-	Created      string           `json:"_created"`
+	Policy       string           `json:"policy,omitempty"`
+	Pre_hooks    []KubebackupHook `json:"pre_hooks,omitempty"`
+	Post_hooks   []KubebackupHook `json:"post_hooks,omitempty"`
+	Trigger_type string           `json:"trigger_type,omitempty"`
+	Updated      string           `json:"_updated,omitempty"`
+	Created      string           `json:"_created,omitempty"`
+	Copydef      string           `json:"copydef,omitempty"`
 	Etag         string           `json:"_etag"`
 	Source       KubebackupSource `json:"source"`
 	Status       KubebackupStatus `json:"status"`
@@ -85,7 +74,7 @@ type GetJobResp struct {
 	Etag       string   `json:"_etag"`
 }
 
-func (c *Client) RunKubebackup(backupId string, backupType string, retention int) (*GetKubebackupResp, error) {
+func (c *Client) RunKubebackup(backupId string, retention int) (*Kubebackup, error) {
 	// Build request body
 	reqBody := map[string]interface{}{
 		"retention": map[string]int{
@@ -100,7 +89,7 @@ func (c *Client) RunKubebackup(backupId string, backupType string, retention int
 	}
 
 	// TODO: check if we need to add anything else for kubeoffload/kubebackup distinction
-	runReq, err := http.NewRequest(http.MethodPost, c.ApiURL+backupType+"/"+backupId+"/action/run", bytes.NewBuffer(runReqBody))
+	runReq, err := http.NewRequest(http.MethodPost, c.ApiURL+"kubebackups/"+backupId+"/action/run", bytes.NewBuffer(runReqBody))
 	if err != nil {
 		err = fmt.Errorf("error creating http request; %w", err)
 		return nil, err
@@ -113,7 +102,7 @@ func (c *Client) RunKubebackup(backupId string, backupType string, retention int
 		return nil, err
 	}
 
-	var runResp GetKubebackupResp
+	var runResp Kubebackup
 	if err := json.Unmarshal(runRespBody, &runResp); err != nil {
 		return nil, err
 	}
@@ -220,7 +209,7 @@ func (c *Client) WatchJobUntilComplete(jobId string) (*GetJobResp, error) {
 }
 
 // CreateKubebackup creates a resource in CloudCasa and returns a struct with important fields
-func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*GetKubebackupResp, error) {
+func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*Kubebackup, error) {
 	// Create rest request struct
 	createReqBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -240,7 +229,7 @@ func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*GetKubebackupRe
 		return nil, err
 	}
 
-	var createRespBody GetKubebackupResp
+	var createRespBody Kubebackup
 	if err := json.Unmarshal(createResp, &createRespBody); err != nil {
 		return nil, err
 	}
@@ -249,7 +238,7 @@ func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*GetKubebackupRe
 }
 
 // GetKubebackup gets a resource in CloudCasa and returns a struct with important fields
-func (c *Client) GetKubebackup(kubebackupId string) (*GetKubebackupResp, error) {
+func (c *Client) GetKubebackup(kubebackupId string) (*Kubebackup, error) {
 	getReq, err := http.NewRequest(http.MethodGet, c.ApiURL+"kubebackups/"+kubebackupId, nil)
 	if err != nil {
 		return nil, err
@@ -260,7 +249,7 @@ func (c *Client) GetKubebackup(kubebackupId string) (*GetKubebackupResp, error) 
 		return nil, err
 	}
 
-	var getKubebackupResp GetKubebackupResp
+	var getKubebackupResp Kubebackup
 	if err := json.Unmarshal(getRespBody, &getKubebackupResp); err != nil {
 		return nil, err
 	}
@@ -268,7 +257,7 @@ func (c *Client) GetKubebackup(kubebackupId string) (*GetKubebackupResp, error) 
 	return &getKubebackupResp, nil
 }
 
-func (c *Client) UpdateKubebackup(kubebackupId string, reqBody interface{}, etag string) (*GetKubebackupResp, error) {
+func (c *Client) UpdateKubebackup(kubebackupId string, reqBody CreateKubebackupReq, etag string) (*Kubebackup, error) {
 	// Create rest request struct
 	putReqBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -291,7 +280,7 @@ func (c *Client) UpdateKubebackup(kubebackupId string, reqBody interface{}, etag
 		return nil, err
 	}
 
-	var putResp GetKubebackupResp
+	var putResp Kubebackup
 	if err := json.Unmarshal(putRespBody, &putResp); err != nil {
 		return nil, err
 	}
