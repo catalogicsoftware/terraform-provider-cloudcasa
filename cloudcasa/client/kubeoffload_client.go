@@ -169,3 +169,17 @@ func (c *Client) UpdateKubeoffload(kubeoffloadId string, reqBody CreateKubeofflo
 
 	return &putResp, nil
 }
+
+func (c *Client) DeleteKubeoffload(kubeoffloadId string) error {
+	delReq, err := http.NewRequest(http.MethodDelete, c.ApiURL+"kubeoffloads/"+kubeoffloadId, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.doRequest(delReq)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

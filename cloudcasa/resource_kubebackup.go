@@ -6,6 +6,7 @@ import (
 
 	cloudcasa "terraform-provider-cloudcasa/cloudcasa/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -15,8 +16,9 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &resourceKubebackup{}
-	_ resource.ResourceWithConfigure = &resourceKubebackup{}
+	_ resource.Resource                = &resourceKubebackup{}
+	_ resource.ResourceWithConfigure   = &resourceKubebackup{}
+	_ resource.ResourceWithImportState = &resourceKubebackup{}
 )
 
 func NewResourceKubebackup() resource.Resource {
@@ -674,5 +676,37 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *resourceKubebackup) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Retrieve values from state
+	var state kubebackupResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
+	// delete kubeoffload first if valid
+	if state.Copy_pvs.ValueBool() {
+		err := r.Client.DeleteKubeoffload(state.Kubeoffload_id.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddWarning(
+				"Error Deleting Kubeoffload resource",
+				err.Error(),
+			)
+			return
+		}
+	}
+
+	err := r.Client.DeleteKubebackup(state.Id.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Deleting Kubebackup resource",
+			err.Error(),
+		)
+		return
+	}
+}
+
+func (r *resourceKubebackup) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Retrieve import ID and save to id attribute
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }

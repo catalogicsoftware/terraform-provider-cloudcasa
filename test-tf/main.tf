@@ -78,29 +78,29 @@ resource "cloudcasa_kubecluster" "testcluster" {
 
 # }
 
-resource "cloudcasa_kubebackup" "testbackup" {
-  name = "test_terraform_offload_2"
-  kubecluster_id = resource.cloudcasa_kubecluster.testcluster.id
+# resource "cloudcasa_kubebackup" "testbackup" {
+#   name = "test_terraform_offload_2"
+#   kubecluster_id = resource.cloudcasa_kubecluster.testcluster.id
 
-  all_namespaces = false
-  select_namespaces = [
-    "test-csi-snapshot"
-  ]
+#   all_namespaces = false
+#   select_namespaces = [
+#     "test-csi-snapshot"
+#   ]
 
-  snapshot_persistent_volumes = true
-  copy_persistent_volumes = true
+#   snapshot_persistent_volumes = true
+#   copy_persistent_volumes = true
 
-  run_on_apply = true
+#   run_on_apply = true
 
-  pre_hooks = [
-    {template = true, namespaces = ["default", "test-csi-snapshot"], hooks = ["61b3bb7b555abc4d71d0a7bf"]}
-  ]
-}
+#   pre_hooks = [
+#     {template = true, namespaces = ["default", "test-csi-snapshot"], hooks = ["61b3bb7b555abc4d71d0a7bf"]}
+#   ]
+# }
 
 output "testcluster_data" {
   value = resource.cloudcasa_kubecluster.testcluster
 }
 
-output "testbackup_data" {
-  value = resource.cloudcasa_kubebackup.testbackup
-}
+# output "testbackup_data" {
+#   value = resource.cloudcasa_kubebackup.testbackup
+# }

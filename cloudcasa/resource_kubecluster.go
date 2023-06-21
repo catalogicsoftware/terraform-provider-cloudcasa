@@ -344,7 +344,7 @@ func (r *resourceKubecluster) Delete(ctx context.Context, req resource.DeleteReq
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting Kubecluster resource",
-			"Could not delete Kubecluster, unexpected error: "+err.Error(),
+			err.Error(),
 		)
 		return
 	}
