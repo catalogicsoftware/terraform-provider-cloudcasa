@@ -276,8 +276,7 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	// Retrieve values from TF state
-	// (need etag value to edit the existing object)
-	// TODO: Load etag from TF state OR GET from CC API?
+	// need etag value to edit the existing object
 	var state kubeclusterResourceModel
 	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)

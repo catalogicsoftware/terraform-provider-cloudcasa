@@ -134,11 +134,20 @@ func (p *cloudcasaProvider) Resources(_ context.Context) []func() resource.Resou
 	}
 }
 
-// TODO: more util functions, move these to another file
+// ConvertTfStringList converts a list of TF StringValues to a list of Go string
 func ConvertTfStringList(tfList []basetypes.StringValue) []string {
 	var stringList []string
 	for _, v := range tfList {
 		stringList = append(stringList, v.ValueString())
 	}
 	return stringList
+}
+
+// ConvertStringListTf converts a list strings to list of TF StringValues
+func ConvertStringListTf(stringList []string) []basetypes.StringValue {
+	var tfList []basetypes.StringValue
+	for _, v := range stringList {
+		tfList = append(tfList, types.StringValue(v))
+	}
+	return tfList
 }

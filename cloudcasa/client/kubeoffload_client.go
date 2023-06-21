@@ -118,3 +118,54 @@ func (c *Client) CreateKubeoffload(reqBody CreateKubeoffloadReq) (*Kubeoffload, 
 
 	return &createRespBody, nil
 }
+
+// GetKubeoffload gets a resource in CloudCasa and returns a struct with important fields
+func (c *Client) GetKubeoffload(kubeoffloadId string) (*Kubeoffload, error) {
+	getReq, err := http.NewRequest(http.MethodGet, c.ApiURL+"kubeoffloads/"+kubeoffloadId, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	getRespBody, err := c.doRequest(getReq)
+	if err != nil {
+		return nil, err
+	}
+
+	var getKubeoffloadResp Kubeoffload
+	if err := json.Unmarshal(getRespBody, &getKubeoffloadResp); err != nil {
+		return nil, err
+	}
+
+	return &getKubeoffloadResp, nil
+}
+
+func (c *Client) UpdateKubeoffload(kubeoffloadId string, reqBody CreateKubeoffloadReq, etag string) (*Kubeoffload, error) {
+	// Create rest request struct
+	putReqBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	putReq, err := http.NewRequest(http.MethodPut, c.ApiURL+"kubeoffloads/"+kubeoffloadId, bytes.NewBuffer(putReqBody))
+	if err != nil {
+		err = fmt.Errorf("error creating http request; %w", err)
+		return nil, err
+	}
+
+	// PUT requests require matching etag
+	putReq.Header.Set("If-Match", etag)
+
+	// PUT to CloudCasa API
+	putRespBody, err := c.doRequest(putReq)
+	if err != nil {
+		err = fmt.Errorf("error performing http request; %w", err)
+		return nil, err
+	}
+
+	var putResp Kubeoffload
+	if err := json.Unmarshal(putRespBody, &putResp); err != nil {
+		return nil, err
+	}
+
+	return &putResp, nil
+}
