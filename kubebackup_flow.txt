@@ -375,4 +375,91 @@ kubeoffload
     "_status": "OK"
 }
 
+ALL WE SEND to create offload AFTER backup:
+{
+   "delete_snapshots":true,
+   "options":{
+      
+   },
+   "offload_provider":{
+      "type":"aws",
+      "region":"us-east-1"
+   },
+   "trigger_type":"ADHOC",
+   "run_backup":false,
+   "name":"manual-copy",
+   "backupdef":"648ca19f8d795688a4736351"
+}
 
+
+
+POLICY
+REQUEST
+
+{
+   "schedules":[
+      {
+         "retainDays":30,
+         "locked":false,
+         "schedule":{
+            "cronSpec":"0 7 */1 * *"
+         }
+      },
+      {
+         "retainDays":30,
+         "locked":false,
+         "schedule":{
+            "cronSpec":"30 0 * * MON,WED,FRI"
+         }
+      }
+   ],
+   "timezone":"America/Phoenix",
+   "name":"test_manual_policy"
+}
+
+RESPONSE
+
+{
+    "schedules": [
+        {
+            "retainDays": 30,
+            "locked": false,
+            "schedule": {
+                "cronSpec": "0 7 */1 * *",
+                "minute": "0",
+                "hour": "7",
+                "dayOfMonth": "*/1",
+                "month": "*",
+                "dayOfWeek": "*"
+            },
+            "numAlwaysRetain": 0
+        },
+        {
+            "retainDays": 30,
+            "locked": false,
+            "schedule": {
+                "cronSpec": "30 0 * * MON,WED,FRI",
+                "minute": "30",
+                "hour": "0",
+                "dayOfMonth": "*",
+                "month": "*",
+                "dayOfWeek": "MON,WED,FRI"
+            },
+            "numAlwaysRetain": 0
+        }
+    ],
+    "timezone": "America/Phoenix",
+    "name": "test_manual_policy",
+    "_updated": "Thu, 22 Jun 2023 18:09:21 GMT",
+    "_created": "Thu, 22 Jun 2023 18:09:21 GMT",
+    "cc_user_email": "jgarner@catalogicsoftware.com",
+    "_etag": "7c4c3c27c7fe0094fedcb723dd98f837ab991916",
+    "_id": "64948e5160a55cbabb5625f5",
+    "_links": {
+        "self": {
+            "title": "policy",
+            "href": "/v1/policies/64948e5160a55cbabb5625f5"
+        }
+    },
+    "_status": "OK"
+}

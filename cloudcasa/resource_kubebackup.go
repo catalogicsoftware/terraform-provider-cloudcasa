@@ -83,6 +83,7 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 			"policy_id": schema.StringAttribute{
 				Optional: true,
 			},
+			// TODO: ListNested to SetNested? Sets are UNORDERED pairs, lists are ORDERED
 			"pre_hooks": schema.ListNestedAttribute{
 				Optional: true,
 				NestedObject: schema.NestedAttributeObject{
@@ -451,7 +452,8 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 	}
 }
 
-// Read refreshes the Terraform state with the latest data.
+// Read refreshes the Terraform state with the latest data from CloudCasa
+// TODO: set from CC resource like in resource_policy.go
 func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Get current state
 	var state kubebackupResourceModel

@@ -11,6 +11,7 @@ import (
 // TODO: should we use omitempty for json fields?
 
 // CreateKubebackupReq maps the request body for kubebackups
+// TODO: just use Kubebackup?
 type CreateKubebackupReq struct {
 	Name         string           `json:"name"`
 	Cluster      string           `json:"cluster"`
@@ -36,9 +37,9 @@ type Kubebackup struct {
 	Pre_hooks    []KubebackupHook `json:"pre_hooks,omitempty"`
 	Post_hooks   []KubebackupHook `json:"post_hooks,omitempty"`
 	Trigger_type string           `json:"trigger_type,omitempty"`
+	Copydef      string           `json:"copydef,omitempty"`
 	Updated      string           `json:"_updated,omitempty"`
 	Created      string           `json:"_created,omitempty"`
-	Copydef      string           `json:"copydef,omitempty"`
 	Etag         string           `json:"_etag"`
 	Source       KubebackupSource `json:"source"`
 	Status       KubebackupStatus `json:"status"`

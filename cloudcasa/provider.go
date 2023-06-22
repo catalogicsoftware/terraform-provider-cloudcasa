@@ -131,9 +131,11 @@ func (p *cloudcasaProvider) Resources(_ context.Context) []func() resource.Resou
 	return []func() resource.Resource{
 		NewResourceKubecluster,
 		NewResourceKubebackup,
+		NewResourcePolicy,
 	}
 }
 
+// TODO: move these
 // ConvertTfStringList converts a list of TF StringValues to a list of Go string
 func ConvertTfStringList(tfList []basetypes.StringValue) []string {
 	var stringList []string
