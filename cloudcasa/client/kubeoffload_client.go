@@ -7,19 +7,24 @@ import (
 	"net/http"
 )
 
-// CreateKubeoffloadReq maps the request body for kubeoffloads
-type CreateKubeoffloadReq struct {
+// Kubeoffload maps the GET response received from CloudCasa
+type Kubeoffload struct {
+	Id                string              `json:"_id,omitempty"`
 	Name              string              `json:"name"`
 	Cluster           string              `json:"cluster"`
-	Policy            string              `json:"policy,omitempty"`
 	Trigger_type      string              `json:"trigger_type"`
 	Backupdef         string              `json:"backupdef"`
-	Run_backup        bool                `json:"run_backup"`
 	Delete_snapshots  bool                `json:"delete_snapshots,omitempty"`
+	Run_backup        bool                `json:"run_backup,omitempty"`
+	Policy            string              `json:"policy,omitempty"`
 	Skip_live_copy    bool                `json:"skip_live_copy,omitempty"`
 	Snapshot_longhorn bool                `json:"snapshot_longhorn,omitempty"`
 	Offload_provider  KubeoffloadProvider `json:"offload_provider,omitempty"`
 	Options           KubeoffloadOptions  `json:"options,omitempty"`
+	Updated           string              `json:"_updated,omitempty"`
+	Created           string              `json:"_created,omitempty"`
+	Etag              string              `json:"_etag,omitempty"`
+	Status            KubeoffloadStatus   `json:"status,omitempty"`
 }
 
 // TODO: check custom bucket settings
@@ -33,26 +38,10 @@ type KubeoffloadOptions struct {
 	Example string `json:"example,omitempty"`
 }
 
-// Kubeoffload maps the GET response received from CloudCasa
-type Kubeoffload struct {
-	Id               string            `json:"_id"`
-	Name             string            `json:"name"`
-	Cluster          string            `json:"cluster"`
-	Policy           string            `json:"policy"`
-	Trigger_type     string            `json:"trigger_type"`
-	Delete_snapshots bool              `json:"delete_snapshots"`
-	Run_backup       bool              `json:"run_backup"`
-	Backupdef        string            `json:"backupdef"`
-	Updated          string            `json:"_updated"`
-	Created          string            `json:"_created"`
-	Etag             string            `json:"_etag"`
-	Status           KubeoffloadStatus `json:"status"`
-}
-
 type KubeoffloadStatus struct {
-	LastJobRunTime int64  `json:"last_job_run_time"`
-	JobID          string `json:"jobid"`
-	State          string `json:"state"`
+	LastJobRunTime int64  `json:"last_job_run_time,omitempty"`
+	JobID          string `json:"jobid,omitempty"`
+	State          string `json:"state,omitempty"`
 }
 
 func (c *Client) RunKubeoffload(backupId string, retention int) (*Kubeoffload, error) {
@@ -91,7 +80,7 @@ func (c *Client) RunKubeoffload(backupId string, retention int) (*Kubeoffload, e
 }
 
 // CreateKubeoffload creates a resource in CloudCasa and returns a struct with important fields
-func (c *Client) CreateKubeoffload(reqBody CreateKubeoffloadReq) (*Kubeoffload, error) {
+func (c *Client) CreateKubeoffload(reqBody Kubeoffload) (*Kubeoffload, error) {
 	// Create rest request struct
 	createReqBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -139,7 +128,7 @@ func (c *Client) GetKubeoffload(kubeoffloadId string) (*Kubeoffload, error) {
 	return &getKubeoffloadResp, nil
 }
 
-func (c *Client) UpdateKubeoffload(kubeoffloadId string, reqBody CreateKubeoffloadReq, etag string) (*Kubeoffload, error) {
+func (c *Client) UpdateKubeoffload(kubeoffloadId string, reqBody Kubeoffload, etag string) (*Kubeoffload, error) {
 	// Create rest request struct
 	putReqBody, err := json.Marshal(reqBody)
 	if err != nil {

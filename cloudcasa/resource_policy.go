@@ -50,7 +50,6 @@ func (r *resourcePolicy) Metadata(_ context.Context, req resource.MetadataReques
 }
 
 // Schema defines the schema for the resource.
-// TODO: add descriptions to every editable attribute
 func (r *resourcePolicy) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
@@ -59,25 +58,31 @@ func (r *resourcePolicy) Schema(_ context.Context, _ resource.SchemaRequest, res
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+				Description: "CloudCasa resource ID",
 			},
 			"name": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "CloudCasa resource name",
 			},
 			"timezone": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "TZ string for the defined Cronjob. Ex: America/New_York",
 			},
 			"schedules": schema.ListNestedAttribute{
 				Required: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"retention": schema.Int64Attribute{
-							Required: true,
+							Required:    true,
+							Description: "Number of days to retain backup data for",
 						},
 						"locked": schema.BoolAttribute{
-							Required: true,
+							Required:    true,
+							Description: "Enable SafeLock for backups (CloudCasa Premium only)",
 						},
 						"cron_spec": schema.StringAttribute{
-							Required: true,
+							Required:    true,
+							Description: "Cron expression for backup schedule. Ex: '0 4 * * sun'",
 						},
 					},
 				},
@@ -130,9 +135,8 @@ func (plan *policyResourceModel) setPlanFromPolicy(policy *cloudcasa.Policy) err
 	return nil
 }
 
-// CreatePolicyFromPlan initializes a cloudcasa.Policy from TF values
-// TODO: public or private function?
-func CreatePolicyFromPlan(plan policyResourceModel) (cloudcasa.Policy, error) {
+// createPolicyFromPlan initializes a cloudcasa.Policy from TF values
+func createPolicyFromPlan(plan policyResourceModel) (cloudcasa.Policy, error) {
 	// Initialize CC policy body
 	policy := cloudcasa.Policy{
 		Name:     plan.Name.ValueString(),
@@ -164,7 +168,7 @@ func (r *resourcePolicy) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	// Initialize CC policy body
-	reqBody, err := CreatePolicyFromPlan(plan)
+	reqBody, err := createPolicyFromPlan(plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"error initalizing TF plan for Policy",
@@ -177,7 +181,7 @@ func (r *resourcePolicy) Create(ctx context.Context, req resource.CreateRequest,
 	createResp, err := r.Client.CreatePolicy(reqBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Creating Policy",
+			"error creating Policy",
 			err.Error(),
 		)
 		return
@@ -186,7 +190,7 @@ func (r *resourcePolicy) Create(ctx context.Context, req resource.CreateRequest,
 	err = plan.setPlanFromPolicy(createResp)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error updating TF state for created policy",
+			"error updating TF state for created Policy",
 			err.Error(),
 		)
 		return
@@ -197,23 +201,6 @@ func (r *resourcePolicy) Create(ctx context.Context, req resource.CreateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// TODO !!!!
-	// 	│ Error: Provider produced inconsistent result after apply
-	// │
-	// │ When applying changes to cloudcasa_policy.testpolicy, provider "provider[\"cloudcasa.io/cloudcasa/cloudcasa\"]" produced an unexpected new value:
-	// │ .schedules: actual set element cty.ObjectVal(map[string]cty.Value{"cron_spec":cty.StringVal("30 0 * * MON,WED,FRI"), "locked":cty.False,
-	// │ "retention":cty.NumberIntVal(22)}) does not correlate with any element in plan.
-	// │
-	// │ This is a bug in the provider, which should be reported in the provider's own issue tracker.
-	// ╵
-	// ╷
-	// │ Error: Provider produced inconsistent result after apply
-	// │
-	// │ When applying changes to cloudcasa_policy.testpolicy, provider "provider[\"cloudcasa.io/cloudcasa/cloudcasa\"]" produced an unexpected new value:
-	// │ .schedules: length changed from 1 to 2.
-	// │
-	// │ This is a bug in the provider, which should be reported in the provider's own issue tracker.
 }
 
 // Read refreshes the Terraform state with the latest data from CloudCasa
@@ -230,7 +217,7 @@ func (r *resourcePolicy) Read(ctx context.Context, req resource.ReadRequest, res
 	policy, err := r.Client.GetPolicy(state.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error reading policy with ID "+state.Id.ValueString(),
+			"error reading Policy with ID "+state.Id.ValueString(),
 			err.Error(),
 		)
 		return
@@ -274,7 +261,7 @@ func (r *resourcePolicy) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	// Initialize CC policy body
-	reqBody, err := CreatePolicyFromPlan(plan)
+	reqBody, err := createPolicyFromPlan(plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"error initalizing TF plan for Policy",

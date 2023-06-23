@@ -30,7 +30,7 @@ type KubebackupHook struct {
 
 // Kubebackup maps the GET response received from CloudCasa
 type Kubebackup struct {
-	Id           string           `json:"_id"`
+	Id           string           `json:"_id,omitempty"`
 	Name         string           `json:"name"`
 	Cluster      string           `json:"cluster"`
 	Policy       string           `json:"policy,omitempty"`
@@ -40,15 +40,15 @@ type Kubebackup struct {
 	Copydef      string           `json:"copydef,omitempty"`
 	Updated      string           `json:"_updated,omitempty"`
 	Created      string           `json:"_created,omitempty"`
-	Etag         string           `json:"_etag"`
+	Etag         string           `json:"_etag,omitempty"`
 	Source       KubebackupSource `json:"source"`
-	Status       KubebackupStatus `json:"status"`
-	Org_id       string           `json:"org_id"`
+	Status       KubebackupStatus `json:"status,omitempty"`
+	Org_id       string           `json:"org_id,omitempty"`
 }
 
 type KubebackupStatus struct {
-	LastJobRunTime int64               `json:"last_job_run_time"`
-	Jobs           []map[string]string `json:"jobs"`
+	LastJobRunTime int64               `json:"last_job_run_time,omitempty"`
+	Jobs           []map[string]string `json:"jobs,omitempty"`
 }
 
 // KubebackupSource maps the 'source' dict for the request body
@@ -210,7 +210,7 @@ func (c *Client) WatchJobUntilComplete(jobId string) (*GetJobResp, error) {
 }
 
 // CreateKubebackup creates a resource in CloudCasa and returns a struct with important fields
-func (c *Client) CreateKubebackup(reqBody CreateKubebackupReq) (*Kubebackup, error) {
+func (c *Client) CreateKubebackup(reqBody Kubebackup) (*Kubebackup, error) {
 	// Create rest request struct
 	createReqBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -258,7 +258,7 @@ func (c *Client) GetKubebackup(kubebackupId string) (*Kubebackup, error) {
 	return &getKubebackupResp, nil
 }
 
-func (c *Client) UpdateKubebackup(kubebackupId string, reqBody CreateKubebackupReq, etag string) (*Kubebackup, error) {
+func (c *Client) UpdateKubebackup(kubebackupId string, reqBody Kubebackup, etag string) (*Kubebackup, error) {
 	// Create rest request struct
 	putReqBody, err := json.Marshal(reqBody)
 	if err != nil {

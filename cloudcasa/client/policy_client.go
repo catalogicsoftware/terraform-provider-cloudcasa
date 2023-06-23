@@ -29,12 +29,6 @@ type ScheduleStruct struct {
 	CronSpec string `json:"cronSpec"`
 }
 
-// SetResourceFromState sets CloudCasa Policy values from Terraform state
-func (Policy) SetResourceFromState(plan struct{}) error {
-
-	return nil
-}
-
 // CreatePolicy creates a resource in CloudCasa and returns a struct with important fields
 func (c *Client) CreatePolicy(reqBody Policy) (*Policy, error) {
 	// Create rest request struct
@@ -84,7 +78,6 @@ func (c *Client) GetPolicy(policyId string) (*Policy, error) {
 	return &getPolicyResp, nil
 }
 
-// TODO: Comments for each function.
 func (c *Client) UpdatePolicy(policyId string, reqBody Policy, etag string) (*Policy, error) {
 	// Create rest request struct
 	putReqBody, err := json.Marshal(reqBody)

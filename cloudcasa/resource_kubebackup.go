@@ -63,6 +63,7 @@ func (r *resourceKubebackup) Metadata(_ context.Context, req resource.MetadataRe
 	resp.TypeName = req.ProviderTypeName + "_kubebackup"
 }
 
+// TODO: add descriptions to every editable attribute
 // TODO: RequiredWith https://developer.hashicorp.com/terraform/plugin/framework/migrating/attributes-blocks/fields
 // Schema defines the schema for the resource.
 func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -73,31 +74,37 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+				Description: "CloudCasa resource ID",
 			},
 			"name": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "CloudCasa resource name",
 			},
 			"kubecluster_id": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "ID of a cluster registered in CloudCasa to use with this backup",
 			},
 			"policy_id": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "ID of a policy created in CloudCasa to use for scheduling this backup",
 			},
-			// TODO: ListNested to SetNested? Sets are UNORDERED pairs, lists are ORDERED
 			"pre_hooks": schema.ListNestedAttribute{
 				Optional: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"template": schema.BoolAttribute{
-							Required: true,
+							Required:    true,
+							Description: "Set to true to use a predefined hook template",
 						},
 						"namespaces": schema.SetAttribute{
 							Required:    true,
 							ElementType: types.StringType,
+							Description: "List of namespaces to run the selected hook in",
 						},
 						"hooks": schema.SetAttribute{
 							Required:    true,
 							ElementType: types.StringType,
+							Description: "ID of a hook created in CloudCasa",
 						},
 					},
 				},
@@ -107,42 +114,44 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"template": schema.BoolAttribute{
-							Required: true,
+							Required:    true,
+							Description: "Set to true to use a predefined hook template",
 						},
 						"namespaces": schema.SetAttribute{
 							Required:    true,
 							ElementType: types.StringType,
+							Description: "List of namespaces to run the selected hook in",
 						},
 						"hooks": schema.SetAttribute{
 							Required:    true,
 							ElementType: types.StringType,
+							Description: "ID of a hook created in CloudCasa",
 						},
 					},
 				},
 			},
 			// run_on_apply will determine trigger_type
-			// TODO: implement /run API on every apply by forcing GET
-			// like we do for kubeclusters
 			"run_on_apply": schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Set to true to run the backup adhoc after creation",
 			},
 			"retention": schema.Int64Attribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Number of days to retain backup data for",
 			},
 			"all_namespaces": schema.BoolAttribute{
-				// TODO: Better validation between these two namespace attrs
-				Required: true,
+				Required:    true,
+				Description: "Set to true to backup all namespaces, otherwise set select_namespaces",
 			},
 			"select_namespaces": schema.SetAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "List of namespaces to include in the backup",
 			},
 			"snapshot_persistent_volumes": schema.BoolAttribute{
-				Required: true,
+				Required:    true,
+				Description: "If false, PVs will be ignored",
 			},
-			// "pause": schema.BoolAttribute{
-			// 	Optional: true,
-			// },
 			"updated": schema.StringAttribute{
 				Computed: true,
 			},
@@ -156,7 +165,8 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed: true,
 			},
 			"copy_persistent_volumes": schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "If true, persistent volume data will be copied and offloaded to S3 storage",
 			},
 			"delete_snapshot_after_copy": schema.BoolAttribute{
 				Optional: true,
@@ -178,60 +188,41 @@ func (r *resourceKubebackup) Configure(_ context.Context, req resource.Configure
 	r.Client = req.ProviderData.(*cloudcasa.Client)
 }
 
-func ValidateKubebackupSelections(plan kubebackupResourceModel) error {
-	// Validate namespace option selections
-	if plan.All_namespaces.ValueBool() && plan.Select_namespaces != nil {
-		return errors.New("Set all_namespaces to true to snapshot every namespace OR define a set of namespaces to snapshot with the select_namespaces attribute.")
-	}
-
-	if !plan.All_namespaces.ValueBool() && plan.Select_namespaces == nil {
-		return errors.New("Define a set of namespaces to snapshot with the select_namespaces attribute, or set all_namespaces to true.")
-	}
-
-	// Validate Copy options
-	if !plan.Copy_pvs.ValueBool() && plan.Delete_snapshots.ValueBool() {
-		return errors.New("delete_snapshot_after_copy requires copy_persistent_volumes to be true.")
-	}
-
-	return nil
-}
-
-// CreateKubebackupFromPlan initializes a request body from TF values
-func CreateKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.CreateKubebackupReq, error) {
-
+// createKubebackupFromPlan initializes a request body from TF values
+func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebackup, error) {
 	// Build 'source' dict of kubebackup body from plan
-	reqBodySource := cloudcasa.KubebackupSource{
+	kubebackupSource := cloudcasa.KubebackupSource{
 		All_namespaces:            plan.All_namespaces.ValueBool(),
 		SnapshotPersistentVolumes: plan.Snapshot_pvs.ValueBool(),
 	}
 	if plan.Select_namespaces != nil {
-		reqBodySource.Namespaces = ConvertTfStringList(plan.Select_namespaces)
+		kubebackupSource.Namespaces = ConvertTfStringList(plan.Select_namespaces)
 	}
 
 	// Build main kubebackup body from plan
-	reqBody := cloudcasa.CreateKubebackupReq{
+	kubebackup := cloudcasa.Kubebackup{
 		Name:    plan.Name.ValueString(),
 		Cluster: plan.Kubecluster_id.ValueString(),
-		Source:  reqBodySource,
+		Source:  kubebackupSource,
 	}
 
 	// Validate namespace option selections
 	if plan.All_namespaces.ValueBool() && plan.Select_namespaces != nil {
-		return reqBody, errors.New("Set all_namespaces to true to snapshot every namespace OR define a set of namespaces to snapshot with the select_namespaces attribute.")
+		return kubebackup, errors.New("set all_namespaces to true to snapshot every namespace OR define a set of namespaces to snapshot with the select_namespaces attribute.")
 	}
 
 	if !plan.All_namespaces.ValueBool() && plan.Select_namespaces == nil {
-		return reqBody, errors.New("Define a set of namespaces to snapshot with the select_namespaces attribute, or set all_namespaces to true.")
+		return kubebackup, errors.New("define a set of namespaces to snapshot with the select_namespaces attribute, or set all_namespaces to true.")
 	}
 
 	// Validate Copy options
 	if !plan.Copy_pvs.ValueBool() && plan.Delete_snapshots.ValueBool() {
-		return reqBody, errors.New("delete_snapshot_after_copy requires copy_persistent_volumes to be true.")
+		return kubebackup, errors.New("delete_snapshot_after_copy requires copy_persistent_volumes to be true.")
 	}
 
 	// Check optional fields
 	if !plan.Policy_id.IsNull() {
-		reqBody.Policy = plan.Policy_id.ValueString()
+		kubebackup.Policy = plan.Policy_id.ValueString()
 	}
 
 	// For each Hook in pre_hooks, convert string values and append
@@ -242,7 +233,7 @@ func CreateKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.CreateKub
 				Namespaces: ConvertTfStringList(v.Namespaces),
 				Hooks:      ConvertTfStringList(v.Hooks),
 			}
-			reqBody.Pre_hooks = append(reqBody.Pre_hooks, thisHook)
+			kubebackup.Pre_hooks = append(kubebackup.Pre_hooks, thisHook)
 		}
 	}
 	if plan.Post_hooks != nil {
@@ -252,30 +243,70 @@ func CreateKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.CreateKub
 				Namespaces: ConvertTfStringList(v.Namespaces),
 				Hooks:      ConvertTfStringList(v.Hooks),
 			}
-			reqBody.Post_hooks = append(reqBody.Post_hooks, thisHook)
+			kubebackup.Post_hooks = append(kubebackup.Post_hooks, thisHook)
 		}
 	}
 
 	// If retention is set, check that run_on_apply is true
 	if !plan.Retention.IsNull() {
 		if !plan.Run.ValueBool() {
-			return reqBody, errors.New("Retention is set but backup job will not run. run_on_apply must be true to run the job without selecting a policy.")
+			return kubebackup, errors.New("retention is set but backup job will not run. run_on_apply must be true to run the job without selecting a policy.")
 		}
 	}
 
 	// If run_on_apply, set trigger_type to ADHOC
 	if plan.Run.ValueBool() {
-		reqBody.Trigger_type = "ADHOC"
+		kubebackup.Trigger_type = "ADHOC"
 	} else {
-		reqBody.Trigger_type = "SCHEDULED"
+		kubebackup.Trigger_type = "SCHEDULED"
 
 		// Exit if no policy is defined for scheduled backup
 		if plan.Policy_id.IsNull() {
-			return reqBody, errors.New("Kubebackups run on a schedule by default and require a policy. To run an adhoc backup, set run_on_apply.")
+			return kubebackup, errors.New("Kubebackups run on a schedule by default and require a policy. To run an adhoc backup, set run_on_apply.")
 		}
 	}
 
-	return reqBody, nil
+	return kubebackup, nil
+}
+
+// createKubeoffloadFromPlan initializes a request body from TF values
+func createKubeoffloadFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubeoffload, error) {
+	// Initialize kubeoffload body
+	kubeoffload := cloudcasa.Kubeoffload{
+		Name:             plan.Name.ValueString(),
+		Cluster:          plan.Kubecluster_id.ValueString(),
+		Delete_snapshots: plan.Delete_snapshots.ValueBool(),
+	}
+
+	// Check optional kubeoffload fields
+	if !plan.Policy_id.IsNull() {
+		kubeoffload.Policy = plan.Policy_id.ValueString()
+	}
+
+	if plan.Run.ValueBool() {
+		kubeoffload.Trigger_type = "ADHOC"
+		kubeoffload.Run_backup = true
+	} else {
+		kubeoffload.Trigger_type = "SCHEDULED"
+		kubeoffload.Run_backup = false
+	}
+
+	return kubeoffload, nil
+}
+
+func (plan *kubebackupResourceModel) setPlanFromKubebackup(kubebackup *cloudcasa.Kubebackup) error {
+	// Set fields in plan
+	plan.Id = types.StringValue(kubebackup.Id)
+	plan.Created = types.StringValue(kubebackup.Created)
+	plan.Updated = types.StringValue(kubebackup.Updated)
+	plan.Etag = types.StringValue(kubebackup.Etag)
+
+	if !plan.Copy_pvs.ValueBool() {
+		plan.Kubeoffload_id = types.StringNull()
+		plan.Offload_etag = types.StringNull()
+	}
+
+	return nil
 }
 
 func (r *resourceKubebackup) RunKubebackup(plan kubebackupResourceModel, backupId string) error {
@@ -341,56 +372,50 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	reqBody, err := CreateKubebackupFromPlan(plan)
+	// Create Kubebackup object from plan values
+	reqBody, err := createKubebackupFromPlan(plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Invalid Kubebackup Definition",
+			"invalid Kubebackup definition",
 			err.Error(),
 		)
 		return
 	}
 
 	// If Copy options are present, initialize kubeoffload body
-	var copyReqBody cloudcasa.CreateKubeoffloadReq
+	var copyReqBody cloudcasa.Kubeoffload
 	if plan.Copy_pvs.ValueBool() {
-		// Build kubeoffload body
-		copyReqBody.Name = plan.Name.ValueString()
-		copyReqBody.Cluster = plan.Kubecluster_id.ValueString()
-		copyReqBody.Delete_snapshots = plan.Delete_snapshots.ValueBool()
-
-		// Check optional kubeoffload fields
-		if !plan.Policy_id.IsNull() {
-			copyReqBody.Policy = plan.Policy_id.ValueString()
+		copyReqBody, err = createKubeoffloadFromPlan(plan)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"invalid Kubeoffload definition",
+				err.Error(),
+			)
+			return
 		}
-
-		if plan.Run.ValueBool() {
-			copyReqBody.Trigger_type = "ADHOC"
-			copyReqBody.Run_backup = true
-		} else {
-			copyReqBody.Trigger_type = "SCHEDULED"
-			copyReqBody.Run_backup = false
-		}
-
 	}
 
 	// Create kubebackup resource in CloudCasa
 	createResp, err := r.Client.CreateKubebackup(reqBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Creating Kubebackup",
+			"error creating Kubebackup",
 			err.Error(),
 		)
 		return
 	}
 
-	// Set fields in plan
-	plan.Id = types.StringValue(createResp.Id)
-	plan.Created = types.StringValue(createResp.Created)
-	plan.Updated = types.StringValue(createResp.Updated)
-	plan.Etag = types.StringValue(createResp.Etag)
-	plan.Kubeoffload_id = types.StringNull()
-	plan.Offload_etag = types.StringNull()
+	// Update fields in plan from creation response
+	err = plan.setPlanFromKubebackup(createResp)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"error updating TF state for created Kubebackup",
+			err.Error(),
+		)
+		return
+	}
 
+	// Save the state here before setting copy options
 	diags = resp.State.Set(ctx, plan)
 
 	var createKubeoffloadResp *cloudcasa.Kubeoffload
@@ -402,7 +427,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		createKubeoffloadResp, err = r.Client.CreateKubeoffload(copyReqBody)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error Creating Kubeoffload",
+				"error creating Kubeoffload",
 				err.Error(),
 			)
 			return
@@ -419,7 +444,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		putResp, err := r.Client.UpdateKubebackup(createResp.Id, reqBody, createResp.Etag)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error Updating Kubebackup",
+				"error updating Kubebackup",
 				err.Error(),
 			)
 			return
@@ -467,8 +492,8 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 	kubebackup, err := r.Client.GetKubebackup(state.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting Kubebackup from CloudCasa",
-			"Could not read Kubebackup with ID "+state.Id.ValueString()+" :"+err.Error(),
+			"error getting Kubebackup from CloudCasa",
+			"could not read Kubebackup with ID "+state.Id.ValueString()+" :"+err.Error(),
 		)
 		return
 	}
@@ -548,7 +573,7 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	//update other fields
-	reqBody, err := CreateKubebackupFromPlan(plan)
+	reqBody, err := createKubebackupFromPlan(plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"invalid kubebackup definition",
@@ -558,48 +583,37 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	// If Copy options are present, initialize kubeoffload body
-	var copyReqBody cloudcasa.CreateKubeoffloadReq
+	var copyReqBody cloudcasa.Kubeoffload
 	if plan.Copy_pvs.ValueBool() {
-		// Add offload ID to kubebackup request
-		reqBody.Copydef = state.Kubeoffload_id.ValueString()
-
-		// Build kubeoffload body
-		copyReqBody.Name = plan.Name.ValueString()
-		copyReqBody.Cluster = plan.Kubecluster_id.ValueString()
-		copyReqBody.Delete_snapshots = plan.Delete_snapshots.ValueBool()
-
-		// Check optional kubeoffload fields
-		if !plan.Policy_id.IsNull() {
-			copyReqBody.Policy = plan.Policy_id.ValueString()
+		copyReqBody, err = createKubeoffloadFromPlan(plan)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"invalid Kubeoffload definition",
+				err.Error(),
+			)
+			return
 		}
-
-		if plan.Run.ValueBool() {
-			copyReqBody.Trigger_type = "ADHOC"
-			copyReqBody.Run_backup = true
-		} else {
-			copyReqBody.Trigger_type = "SCHEDULED"
-			copyReqBody.Run_backup = false
-		}
-
 	}
 
 	// Update kubebackup resource in CloudCasa
 	updateResp, err := r.Client.UpdateKubebackup(plan.Id.ValueString(), reqBody, state.Etag.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Updating Kubebackup",
+			"error updating Kubebackup",
 			err.Error(),
 		)
 		return
 	}
 
-	// Set fields in plan
-	plan.Id = types.StringValue(updateResp.Id)
-	plan.Created = types.StringValue(updateResp.Created)
-	plan.Updated = types.StringValue(updateResp.Updated)
-	plan.Etag = types.StringValue(updateResp.Etag)
-	plan.Kubeoffload_id = types.StringValue(updateResp.Copydef)
-	plan.Offload_etag = state.Offload_etag
+	// Update fields in plan from creation response
+	err = plan.setPlanFromKubebackup(updateResp)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"error updating TF state for created Kubebackup",
+			err.Error(),
+		)
+		return
+	}
 
 	diags = resp.State.Set(ctx, plan)
 
@@ -643,7 +657,7 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		putResp, err := r.Client.UpdateKubebackup(updateResp.Id, reqBody, updateResp.Etag)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error Updating Kubebackup",
+				"error updating Kubebackup",
 				err.Error(),
 			)
 			return
@@ -691,7 +705,7 @@ func (r *resourceKubebackup) Delete(ctx context.Context, req resource.DeleteRequ
 		err := r.Client.DeleteKubeoffload(state.Kubeoffload_id.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddWarning(
-				"Error Deleting Kubeoffload resource",
+				"error deleting Kubeoffload resource",
 				err.Error(),
 			)
 			return
@@ -701,7 +715,7 @@ func (r *resourceKubebackup) Delete(ctx context.Context, req resource.DeleteRequ
 	err := r.Client.DeleteKubebackup(state.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Deleting Kubebackup resource",
+			"error deleting Kubebackup resource",
 			err.Error(),
 		)
 		return
