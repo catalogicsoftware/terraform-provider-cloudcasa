@@ -15,13 +15,13 @@ type Policy struct {
 	Schedules []PolicySchedule `json:"schedules"`
 	Updated   string           `json:"_updated,omitempty"`
 	Created   string           `json:"_created,omitempty"`
-	Etag      string           `json:"_etag"`
+	Etag      string           `json:"_etag,omitempty"`
 }
 
 // PolicySchedule maps the Schedule objects for Policies
 type PolicySchedule struct {
-	RetainDays string         `json:"retainDays"`
-	Locked     bool           `json:"locked,omitempty"`
+	RetainDays int64          `json:"retainDays"`
+	Locked     bool           `json:"locked"`
 	Schedule   ScheduleStruct `json:"schedule"`
 }
 

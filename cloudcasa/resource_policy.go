@@ -39,8 +39,8 @@ type policyResourceModel struct {
 }
 
 type policyScheduleModel struct {
-	Retention types.String `tfsdk:"retention"`
-	Locked    types.Bool   `tfsdk:"locked,omitempty"`
+	Retention types.Int64  `tfsdk:"retention"`
+	Locked    types.Bool   `tfsdk:"locked"`
 	Cron_spec types.String `tfsdk:"cron_spec"`
 }
 
@@ -50,6 +50,7 @@ func (r *resourcePolicy) Metadata(_ context.Context, req resource.MetadataReques
 }
 
 // Schema defines the schema for the resource.
+// TODO: add descriptions to every editable attribute
 func (r *resourcePolicy) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
@@ -65,15 +66,15 @@ func (r *resourcePolicy) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"timezone": schema.StringAttribute{
 				Required: true,
 			},
-			"schedules": schema.SetNestedAttribute{
+			"schedules": schema.ListNestedAttribute{
 				Required: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"retention": schema.StringAttribute{
+						"retention": schema.Int64Attribute{
 							Required: true,
 						},
 						"locked": schema.BoolAttribute{
-							Optional: true,
+							Required: true,
 						},
 						"cron_spec": schema.StringAttribute{
 							Required: true,
@@ -103,10 +104,9 @@ func (r *resourcePolicy) Configure(_ context.Context, req resource.ConfigureRequ
 	r.Client = req.ProviderData.(*cloudcasa.Client)
 }
 
-// SetPlanFromPolicy sets Terraform state values from a given CloudCasa Policy resource
+// setPlanFromPolicy sets Terraform state values from a given CloudCasa Policy resource
 // TODO: implement this function for other resources
-// TODO: public or private function?
-func (plan policyResourceModel) SetPlanFromPolicy(policy *cloudcasa.Policy) error {
+func (plan *policyResourceModel) setPlanFromPolicy(policy *cloudcasa.Policy) error {
 	// Set fields in plan
 	plan.Id = types.StringValue(policy.Id)
 	plan.Timezone = types.StringValue(policy.Timezone)
@@ -114,11 +114,14 @@ func (plan policyResourceModel) SetPlanFromPolicy(policy *cloudcasa.Policy) erro
 	plan.Updated = types.StringValue(policy.Updated)
 	plan.Etag = types.StringValue(policy.Etag)
 
+	// Remove existing Schedules from the plan so we can overwrite
+	plan.Schedules = []policyScheduleModel{}
+
 	// TODO: do this for backups pre_hooks
 	// Convert Schedules body from CC to TF
 	for _, v := range policy.Schedules {
 		thisSchedule := policyScheduleModel{
-			Retention: types.StringValue(v.RetainDays),
+			Retention: types.Int64Value(v.RetainDays),
 			Locked:    types.BoolValue(v.Locked),
 			Cron_spec: types.StringValue(v.Schedule.CronSpec),
 		}
@@ -139,7 +142,7 @@ func CreatePolicyFromPlan(plan policyResourceModel) (cloudcasa.Policy, error) {
 	// Create body for Schedules
 	for _, v := range plan.Schedules {
 		thisSchedule := cloudcasa.PolicySchedule{
-			RetainDays: v.Retention.ValueString(),
+			RetainDays: v.Retention.ValueInt64(),
 			Locked:     v.Locked.ValueBool(),
 			Schedule: cloudcasa.ScheduleStruct{
 				CronSpec: v.Cron_spec.ValueString(),
@@ -180,7 +183,8 @@ func (r *resourcePolicy) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	if err = plan.SetPlanFromPolicy(createResp); err != nil {
+	err = plan.setPlanFromPolicy(createResp)
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"error updating TF state for created policy",
 			err.Error(),
@@ -193,6 +197,23 @@ func (r *resourcePolicy) Create(ctx context.Context, req resource.CreateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// TODO !!!!
+	// 	│ Error: Provider produced inconsistent result after apply
+	// │
+	// │ When applying changes to cloudcasa_policy.testpolicy, provider "provider[\"cloudcasa.io/cloudcasa/cloudcasa\"]" produced an unexpected new value:
+	// │ .schedules: actual set element cty.ObjectVal(map[string]cty.Value{"cron_spec":cty.StringVal("30 0 * * MON,WED,FRI"), "locked":cty.False,
+	// │ "retention":cty.NumberIntVal(22)}) does not correlate with any element in plan.
+	// │
+	// │ This is a bug in the provider, which should be reported in the provider's own issue tracker.
+	// ╵
+	// ╷
+	// │ Error: Provider produced inconsistent result after apply
+	// │
+	// │ When applying changes to cloudcasa_policy.testpolicy, provider "provider[\"cloudcasa.io/cloudcasa/cloudcasa\"]" produced an unexpected new value:
+	// │ .schedules: length changed from 1 to 2.
+	// │
+	// │ This is a bug in the provider, which should be reported in the provider's own issue tracker.
 }
 
 // Read refreshes the Terraform state with the latest data from CloudCasa
@@ -216,7 +237,8 @@ func (r *resourcePolicy) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	// Update state with values from CloudCasa
-	if err = state.SetPlanFromPolicy(policy); err != nil {
+	err = state.setPlanFromPolicy(policy)
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"error updating TF state for policy with ID "+state.Id.ValueString(),
 			err.Error(),
@@ -271,7 +293,8 @@ func (r *resourcePolicy) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	if err = plan.SetPlanFromPolicy(updateResp); err != nil {
+	err = plan.setPlanFromPolicy(updateResp)
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"error updating TF state for updated policy",
 			err.Error(),

@@ -583,7 +583,7 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 
 	}
 
-	// Create kubebackup resource in CloudCasa
+	// Update kubebackup resource in CloudCasa
 	updateResp, err := r.Client.UpdateKubebackup(plan.Id.ValueString(), reqBody, state.Etag.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
