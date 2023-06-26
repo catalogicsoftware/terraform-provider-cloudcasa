@@ -37,7 +37,7 @@ type kubebackupResourceModel struct {
 	Policy_id         types.String          `tfsdk:"policy_id"`
 	Pre_hooks         []kubebackupHookModel `tfsdk:"pre_hooks"`
 	Post_hooks        []kubebackupHookModel `tfsdk:"post_hooks"`
-	Run               types.Bool            `tfsdk:"run_on_apply"`
+	Run               types.Bool            `tfsdk:"run_after_create"`
 	Retention         types.Int64           `tfsdk:"retention"`
 	All_namespaces    types.Bool            `tfsdk:"all_namespaces"`
 	Select_namespaces []types.String        `tfsdk:"select_namespaces"`
@@ -96,12 +96,12 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 							Required:    true,
 							Description: "Set to true to use a predefined hook template",
 						},
-						"namespaces": schema.SetAttribute{
+						"namespaces": schema.ListAttribute{
 							Required:    true,
 							ElementType: types.StringType,
 							Description: "List of namespaces to run the selected hook in",
 						},
-						"hooks": schema.SetAttribute{
+						"hooks": schema.ListAttribute{
 							Required:    true,
 							ElementType: types.StringType,
 							Description: "ID of a hook created in CloudCasa",
@@ -117,12 +117,12 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 							Required:    true,
 							Description: "Set to true to use a predefined hook template",
 						},
-						"namespaces": schema.SetAttribute{
+						"namespaces": schema.ListAttribute{
 							Required:    true,
 							ElementType: types.StringType,
 							Description: "List of namespaces to run the selected hook in",
 						},
-						"hooks": schema.SetAttribute{
+						"hooks": schema.ListAttribute{
 							Required:    true,
 							ElementType: types.StringType,
 							Description: "ID of a hook created in CloudCasa",
@@ -130,10 +130,10 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 					},
 				},
 			},
-			// run_on_apply will determine trigger_type
-			"run_on_apply": schema.BoolAttribute{
+			// run_after_create will determine trigger_type
+			"run_after_create": schema.BoolAttribute{
 				Optional:    true,
-				Description: "Set to true to run the backup adhoc after creation",
+				Description: "Run the backup immediately after creation or update",
 			},
 			"retention": schema.Int64Attribute{
 				Optional:    true,
@@ -143,7 +143,7 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 				Required:    true,
 				Description: "Set to true to backup all namespaces, otherwise set select_namespaces",
 			},
-			"select_namespaces": schema.SetAttribute{
+			"select_namespaces": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
 				Description: "List of namespaces to include in the backup",
@@ -208,11 +208,11 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 
 	// Validate namespace option selections
 	if plan.All_namespaces.ValueBool() && plan.Select_namespaces != nil {
-		return kubebackup, errors.New("set all_namespaces to true to snapshot every namespace OR define a set of namespaces to snapshot with the select_namespaces attribute.")
+		return kubebackup, errors.New("set all_namespaces to true to snapshot every namespace OR define a list of namespaces to snapshot with the select_namespaces attribute.")
 	}
 
 	if !plan.All_namespaces.ValueBool() && plan.Select_namespaces == nil {
-		return kubebackup, errors.New("define a set of namespaces to snapshot with the select_namespaces attribute, or set all_namespaces to true.")
+		return kubebackup, errors.New("define a list of namespaces to snapshot with the select_namespaces attribute, or set all_namespaces to true.")
 	}
 
 	// Validate Copy options
@@ -247,14 +247,14 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 		}
 	}
 
-	// If retention is set, check that run_on_apply is true
+	// If retention is set, check that run_after_create is true
 	if !plan.Retention.IsNull() {
 		if !plan.Run.ValueBool() {
-			return kubebackup, errors.New("retention is set but backup job will not run. run_on_apply must be true to run the job without selecting a policy.")
+			return kubebackup, errors.New("retention is set but backup job will not run. run_after_create must be true to run the job without selecting a policy.")
 		}
 	}
 
-	// If run_on_apply, set trigger_type to ADHOC
+	// If run_after_create, set trigger_type to ADHOC
 	if plan.Run.ValueBool() {
 		kubebackup.Trigger_type = "ADHOC"
 	} else {
@@ -262,7 +262,7 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 
 		// Exit if no policy is defined for scheduled backup
 		if plan.Policy_id.IsNull() {
-			return kubebackup, errors.New("Kubebackups run on a schedule by default and require a policy. To run an adhoc backup, set run_on_apply.")
+			return kubebackup, errors.New("Kubebackups run on a schedule by default and require a policy. To run an adhoc backup, set run_after_create.")
 		}
 	}
 
@@ -456,7 +456,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		plan.Offload_etag = types.StringValue(createKubeoffloadResp.Etag)
 	}
 
-	// If run_on_apply is false return now. Otherwise continue and run the job
+	// If run_after_create is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
 		return
 	}
@@ -492,8 +492,8 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 	kubebackup, err := r.Client.GetKubebackup(state.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error getting Kubebackup from CloudCasa",
-			"could not read Kubebackup with ID "+state.Id.ValueString()+" :"+err.Error(),
+			"error updating TF state for Kubebackup with ID "+state.Id.ValueString(),
+			err.Error(),
 		)
 		return
 	}
@@ -511,6 +511,7 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	// check hooks fields and convert
+	state.Pre_hooks, state.Post_hooks = nil, nil
 	if kubebackup.Pre_hooks != nil {
 		for _, v := range kubebackup.Pre_hooks {
 			thisHook := kubebackupHookModel{
@@ -669,7 +670,7 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		plan.Offload_etag = types.StringValue(updateKubeoffloadResp.Etag)
 	}
 
-	// If run_on_apply is false return now. Otherwise continue and run the job
+	// If run_after_create is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
 		return
 	}

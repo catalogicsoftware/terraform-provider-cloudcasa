@@ -12,7 +12,7 @@ terraform {
 # }
 
 provider "cloudcasa" {
-  apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InM3NmtuNThRT2liTXRfZnNpVFlLMCJ9.eyJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9jb3VudHJ5IjoiVW5pdGVkIFN0YXRlcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL3RpbWV6b25lIjoiQW1lcmljYS9OZXdfWW9yayIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvdW50cnlfY29kZSI6IlVTIiwiaHR0cDovL3d3dy5jbG91ZGNhc2EuaW8vY291bnRyeV9jb2RlMyI6IlVTQSIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2ZpcnN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9sYXN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9qb2JUaXRsZSI6IkRldm9wcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvbXBhbnkiOiJDYXRhbG9naWMgU29mdHdhcmUiLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9hd3NfbWFya2V0cGxhY2VfdG9rZW4iOiItIiwibmlja25hbWUiOiJqZ2FybmVyIiwibmFtZSI6IkpvbmF0aGFuIEdhcm5lciIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci8yOTlhNmJhNjhlNjEwOGFiYjY1MmY4ZTkwZTM0YjVhNj9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRmpnLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDIzLTA2LTIzVDE0OjM4OjE1LjgzNloiLCJlbWFpbCI6ImpnYXJuZXJAY2F0YWxvZ2ljc29mdHdhcmUuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImlzcyI6Imh0dHBzOi8vYXV0aC5jbG91ZGNhc2EuaW8vIiwiYXVkIjoiSkVKU3plblBGeE5FUFEwaDY0ZDIzZTZRMEdKNXpRanQiLCJpYXQiOjE2ODc1MzEwOTcsImV4cCI6MTY4NzU0NTQ5Nywic3ViIjoiYXV0aDB8NWZhYzQ4NDg0MWQ3MDgwMDY4YTA2ZGM5Iiwic2lkIjoiMDF3TFJJUWVSVWhDX2FnaDczZTJCcXMxNkIweXZrcW8iLCJub25jZSI6IlVEWnNkRUUwUTB4eFp5NWpRbk10TW5KbmNXTmlMWFZ2VEZGM2VIRnFUVVl3ZFZKWFNuWkdjVlJHZGc9PSJ9.leS-QVwwZt7THWKRv8RssFMd89IFzb8X171HQ-x5iIL5Tl6OrGHNIBL2gfawMsKSlA7ujHdVlb_J8rXoyjGStrKnsrbcjJMIyYabUVVtSGU40RtHcaw4RYWm0U4HlA1VAWAE0TwdKGP7ylLfdTH4--J61tJogLlRbu0voV7WMWrKaBrwz7x0QUeHSMQtiomXrnvG7oEw3hnwuKUOTVhe3vyGXYbz_yDgqzXcdFcr4FqcWGV2dXBJW_z4_zpY5DPMadvZep6P7as3WkE3tnxSYdg0fQ0ZS26yXEqN-cR5JjlmBtWhge4U9v2xEJsDjKMmjKSQCg1N9J5TGvPJK7zkUw"
+  apikey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InM3NmtuNThRT2liTXRfZnNpVFlLMCJ9.eyJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9jb3VudHJ5IjoiVW5pdGVkIFN0YXRlcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL3RpbWV6b25lIjoiQW1lcmljYS9OZXdfWW9yayIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvdW50cnlfY29kZSI6IlVTIiwiaHR0cDovL3d3dy5jbG91ZGNhc2EuaW8vY291bnRyeV9jb2RlMyI6IlVTQSIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2ZpcnN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9sYXN0TmFtZSI6Ii0iLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9qb2JUaXRsZSI6IkRldm9wcyIsImh0dHA6Ly93d3cuY2xvdWRjYXNhLmlvL2NvbXBhbnkiOiJDYXRhbG9naWMgU29mdHdhcmUiLCJodHRwOi8vd3d3LmNsb3VkY2FzYS5pby9hd3NfbWFya2V0cGxhY2VfdG9rZW4iOiItIiwibmlja25hbWUiOiJqZ2FybmVyIiwibmFtZSI6IkpvbmF0aGFuIEdhcm5lciIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci8yOTlhNmJhNjhlNjEwOGFiYjY1MmY4ZTkwZTM0YjVhNj9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRmpnLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDIzLTA2LTI2VDE2OjA2OjI4LjM3M1oiLCJlbWFpbCI6ImpnYXJuZXJAY2F0YWxvZ2ljc29mdHdhcmUuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImlzcyI6Imh0dHBzOi8vYXV0aC5jbG91ZGNhc2EuaW8vIiwiYXVkIjoiSkVKU3plblBGeE5FUFEwaDY0ZDIzZTZRMEdKNXpRanQiLCJpYXQiOjE2ODc3OTU1ODksImV4cCI6MTY4NzgwOTk4OSwic3ViIjoiYXV0aDB8NWZhYzQ4NDg0MWQ3MDgwMDY4YTA2ZGM5Iiwic2lkIjoiakM0VTRoZXJPVDAySFNtZVJHWVR4dnRYekVIMjdXMFoiLCJub25jZSI6IlZGcEJjMUZUU25OWVJITnJSVWhGWTJsMWVYTXdhbGhZYjI5UWJuUklRVTVPT0ZwSlMwRlRVRTk0VXc9PSJ9.TxwKwt3WoKw2iaqd7Sf8sAMV1o854u5poMSvumU5lGH1RV1iV8w0tNW1DsdgrfWtHNAL0ib4g3nMK014P4R399XUVeFQ_Uza-JnoOA96UHKaAriyb0lGI1FCB8FCh68ntpQzO23dEYXVjdtwUOirRc_p61lkuKkOTwtzozZwroWcyotRsI4SbF1wt6kwPP_DILTsc4gNK1ZQ392vYQk_3z6NNTkKfb8iYn5pwHCR2Ll22ttpaSigFtPRBu7Gr-KCrHC5QkqUNlsF6Uczd1KKbUV5TxlQSFu0fNHHQcfCE90JeHJ-rpNDuEm0hMOV6WQNu_SORPXbHJywxAhzA6X-Fw"
 
   # kubernetes {
   #   config_path = "~/work/test-eks-cluster.yaml"
@@ -61,8 +61,8 @@ resource "cloudcasa_policy" "testpolicy" {
   timezone = "America/New_York"
   schedules = [
     {
-      retention = 22,
-      cron_spec = "30 0 * * MON,WED,FRI",
+      retention = 12,
+      cron_spec = "30 0 * * MON,FRI",
       locked = false,
     }
   ]
@@ -78,14 +78,14 @@ resource "cloudcasa_kubebackup" "testbackup" {
   ]
   snapshot_persistent_volumes = true
 
-  copy_persistent_volumes = true
+  copy_persistent_volumes = false
   # TODO: require cloudcasa_kubeoffload resource for copies
 
   pre_hooks = [
     {template = true, namespaces = ["default", "test-csi-snapshot"], hooks = ["61b3bb7b555abc4d71d0a7bf"]}
   ]
 
-  run_on_apply = false
+  run_after_create = true
 
   policy_id = resource.cloudcasa_policy.testpolicy.id  
 
@@ -103,7 +103,7 @@ resource "cloudcasa_kubebackup" "testbackup" {
 #   snapshot_persistent_volumes = true
 #   copy_persistent_volumes = true
 
-#   run_on_apply = true
+#   run_after_create = true
 
 #   pre_hooks = [
 #     {template = true, namespaces = ["default", "test-csi-snapshot"], hooks = ["61b3bb7b555abc4d71d0a7bf"]}

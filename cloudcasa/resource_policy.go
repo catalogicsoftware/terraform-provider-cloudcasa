@@ -227,7 +227,7 @@ func (r *resourcePolicy) Read(ctx context.Context, req resource.ReadRequest, res
 	err = state.setPlanFromPolicy(policy)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error updating TF state for policy with ID "+state.Id.ValueString(),
+			"error updating TF state for Policy with ID "+state.Id.ValueString(),
 			err.Error(),
 		)
 		return
