@@ -44,6 +44,7 @@ type KubeoffloadStatus struct {
 	State          string `json:"state,omitempty"`
 }
 
+// RunKubeoffload runs the selected job using CloudCasa action/run API
 func (c *Client) RunKubeoffload(backupId string, retention int) (*Kubeoffload, error) {
 	// Build request body
 	reqBody := map[string]interface{}{

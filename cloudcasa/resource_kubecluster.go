@@ -31,30 +31,15 @@ type resourceKubecluster struct {
 
 // kubeclusterResourceModel maps the resource schema data.
 type kubeclusterResourceModel struct {
-	Name          types.String `tfsdk:"name"`
-	Id            types.String `tfsdk:"id"`
-	Auto_install  types.Bool   `tfsdk:"auto_install"`
-	Cc_user_email types.String `tfsdk:"cc_user_email"`
-	Updated       types.String `tfsdk:"updated"`
-	Created       types.String `tfsdk:"created"`
-	Org_id        types.String `tfsdk:"org_id"`
-	Etag          types.String `tfsdk:"etag"`
-	Status        types.Map    `tfsdk:"status"`
-	Links         types.Map    `tfsdk:"links"`
-	Agent_url     types.String `tfsdk:"agent_url"`
-}
-
-// API Response Objects
-type CreateKubeclusterResp struct {
-	Id            string   `json:"_id"`
-	Name          string   `json:"name"`
-	Cc_user_email string   `json:"cc_user_email"`
-	Updated       string   `json:"_updated"`
-	Created       string   `json:"_created"`
-	Etag          string   `json:"_etag"`
-	Org_id        string   `json:"org_id"`
-	Status        string   `json:"_status"`
-	Links         struct{} `json:"_links"`
+	Name         types.String `tfsdk:"name"`
+	Id           types.String `tfsdk:"id"`
+	Auto_install types.Bool   `tfsdk:"auto_install"`
+	Updated      types.String `tfsdk:"updated"`
+	Created      types.String `tfsdk:"created"`
+	Etag         types.String `tfsdk:"etag"`
+	Status       types.Map    `tfsdk:"status"`
+	Links        types.Map    `tfsdk:"links"`
+	Agent_url    types.String `tfsdk:"agent_url"`
 }
 
 // Metadata returns the data source type name.
@@ -78,9 +63,6 @@ func (r *resourceKubecluster) Schema(_ context.Context, _ resource.SchemaRequest
 			"auto_install": schema.BoolAttribute{
 				Optional: true,
 			},
-			"cc_user_email": schema.StringAttribute{
-				Computed: true,
-			},
 			"updated": schema.StringAttribute{
 				Computed: true,
 			},
@@ -88,9 +70,6 @@ func (r *resourceKubecluster) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed: true,
 			},
 			"etag": schema.StringAttribute{
-				Computed: true,
-			},
-			"org_id": schema.StringAttribute{
 				Computed: true,
 			},
 			"status": schema.MapAttribute{
@@ -145,11 +124,9 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	// Set fields in plan
 	plan.Id = types.StringValue(createResp.Id)
 	plan.Name = types.StringValue(createResp.Name)
-	plan.Cc_user_email = types.StringValue(createResp.Cc_user_email)
 	plan.Created = types.StringValue(createResp.Created)
 	plan.Updated = types.StringValue(createResp.Updated)
 	plan.Etag = types.StringValue(createResp.Etag)
-	plan.Org_id = types.StringValue(createResp.Org_id)
 
 	// if auto_install is false return now. Otherwise proceed with agent installation
 	if !plan.Auto_install.ValueBool() {
@@ -212,9 +189,7 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 }
 
 // Read refreshes the Terraform state with the latest data.
-// TODO: if auto-install is enabled, we should check the status on each refresh
 // and apply the agent with current kubeconfig if not active.
-// TODO: CHECK STATUS!
 func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Get current state
 	var state kubeclusterResourceModel
@@ -251,11 +226,9 @@ func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest
 	// Set fields in plan
 	state.Id = types.StringValue(getKubeclusterResp.Id)
 	state.Name = types.StringValue(getKubeclusterResp.Name)
-	state.Cc_user_email = types.StringValue(getKubeclusterResp.Cc_user_email)
 	state.Created = types.StringValue(getKubeclusterResp.Created)
 	state.Updated = types.StringValue(getKubeclusterResp.Updated)
 	state.Etag = types.StringValue(getKubeclusterResp.Etag)
-	state.Org_id = types.StringValue(getKubeclusterResp.Org_id)
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -305,11 +278,9 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 	// Set fields in plan
 	plan.Id = types.StringValue(updateResp.Id)
 	plan.Name = types.StringValue(updateResp.Name)
-	plan.Cc_user_email = types.StringValue(updateResp.Cc_user_email)
 	plan.Created = types.StringValue(updateResp.Created)
 	plan.Updated = types.StringValue(updateResp.Updated)
 	plan.Etag = types.StringValue(updateResp.Etag)
-	plan.Org_id = types.StringValue(updateResp.Org_id)
 
 	// Check that Agent URL was fetched successfully
 	kubeclusterStatus := updateResp.Status

@@ -11,16 +11,16 @@ import (
 )
 
 // CreateKubeclusterResp maps the POST response received from CloudCasa
+// We use different structs for create/get because 'status' field uses string
+// for Create but struct for Get
 type CreateKubeclusterResp struct {
-	Id            string   `json:"_id"`
-	Name          string   `json:"name"`
-	Cc_user_email string   `json:"cc_user_email"`
-	Updated       string   `json:"_updated"`
-	Created       string   `json:"_created"`
-	Etag          string   `json:"_etag"`
-	Org_id        string   `json:"org_id"`
-	Status        string   `json:"_status"`
-	Links         struct{} `json:"_links"`
+	Id      string   `json:"_id"`
+	Name    string   `json:"name"`
+	Updated string   `json:"_updated"`
+	Created string   `json:"_created"`
+	Etag    string   `json:"_etag"`
+	Status  string   `json:"_status"`
+	Links   struct{} `json:"_links"`
 }
 
 type KubeclusterStatus struct {
@@ -30,15 +30,13 @@ type KubeclusterStatus struct {
 
 // GetKubeclusterResp maps the GET response received from CloudCasa
 type GetKubeclusterResp struct {
-	Id            string            `json:"_id"`
-	Name          string            `json:"name"`
-	Cc_user_email string            `json:"cc_user_email"`
-	Updated       string            `json:"_updated"`
-	Created       string            `json:"_created"`
-	Etag          string            `json:"_etag"`
-	Org_id        string            `json:"org_id"`
-	Status        KubeclusterStatus `json:"status"`
-	Links         struct{}          `json:"_links"`
+	Id      string            `json:"_id"`
+	Name    string            `json:"name"`
+	Updated string            `json:"_updated"`
+	Created string            `json:"_created"`
+	Etag    string            `json:"_etag"`
+	Status  KubeclusterStatus `json:"status"`
+	Links   struct{}          `json:"_links"`
 }
 
 // CreateKubecluster creates a resource in CloudCasa and returns a struct with important fields
@@ -69,7 +67,6 @@ func (c *Client) CreateKubecluster(reqBody interface{}) (*CreateKubeclusterResp,
 	}
 
 	// Check that cluster resource was created in CloudCasa
-	// TODO: Better failure check
 	status := createResp.Status
 	if status != "OK" {
 		return nil, errors.New("received status NOT OK from CloudCasa")

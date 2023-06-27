@@ -31,7 +31,6 @@ type cloudcasaProvider struct{}
 // cloudcasaProviderModel maps provider schema data to a Go type.
 type cloudcasaProviderModel struct {
 	Apikey types.String `tfsdk:"apikey"`
-	Email  types.String `tfsdk:"email"`
 }
 
 // Metadata returns the provider type name.
@@ -40,13 +39,9 @@ func (p *cloudcasaProvider) Metadata(_ context.Context, _ provider.MetadataReque
 }
 
 // Schema defines the provider-level schema for configuration data.
-// TODO: rm email?
 func (p *cloudcasaProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"email": schema.StringAttribute{
-				Optional: true,
-			},
 			"apikey": schema.StringAttribute{
 				Required: true,
 			},

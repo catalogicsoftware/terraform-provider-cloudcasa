@@ -1,10 +1,18 @@
 Build:
-go build -o terraform-provider-cloudcasa.exe 
+go build -o terraform-provider-cloudcasa
+go build -o terraform-provider-cloudcasa.exe  (windows)
 
 provider must be copied to plugins location
 Windows based system %APPDATA%\terraform.d\plugins\${host_name}/${namespace}/${type}/${version}/${target}
-so its
-%APPDATA%\terraform.d\plugins\cloudcasa.io/cloudcasa/cloudcasa/0.0.1/windows_amd64
+
+%APPDATA%\terraform.d\plugins\cloudcasa.io/cloudcasa/cloudcasa/0.0.1/windows_amd64 (windows)
+
+LINUX
+~/.terraform.d/plugins/cloudcasa.io/cloudcasa/cloudcasa/0.0.1/linux_amd64
+
+sudo mv terraform-provider-cloudcasa ~/.terraform.d/plugins/cloudcasa.io/cloudcasa/cloudcasa/0.0.1/linux_amd64/
+
+terraform init -upgrade
 
 https://learn.hashicorp.com/tutorials/terraform/provider-setup?in=terraform/providers
 
@@ -34,4 +42,12 @@ Copy the commvault layout
     provider.go
 --------handler
         (handlers and structs).go
+
+
+AFTER INITIAL RELEASE:
+- RequiredWith Attributes for built in validation https://developer.hashicorp.com/terraform/plugin/framework/migrating/attributes-blocks/fields
+- Kubeoffload Options/Bucket selection
+    - Define buckets?
+
+
 

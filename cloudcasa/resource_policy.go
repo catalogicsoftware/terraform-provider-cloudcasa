@@ -110,7 +110,6 @@ func (r *resourcePolicy) Configure(_ context.Context, req resource.ConfigureRequ
 }
 
 // setPlanFromPolicy sets Terraform state values from a given CloudCasa Policy resource
-// TODO: implement this function for other resources
 func (plan *policyResourceModel) setPlanFromPolicy(policy *cloudcasa.Policy) error {
 	// Set fields in plan
 	plan.Id = types.StringValue(policy.Id)
@@ -122,7 +121,6 @@ func (plan *policyResourceModel) setPlanFromPolicy(policy *cloudcasa.Policy) err
 	// Remove existing Schedules from the plan so we can overwrite
 	plan.Schedules = []policyScheduleModel{}
 
-	// TODO: do this for backups pre_hooks
 	// Convert Schedules body from CC to TF
 	for _, v := range policy.Schedules {
 		thisSchedule := policyScheduleModel{

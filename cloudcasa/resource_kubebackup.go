@@ -63,8 +63,6 @@ func (r *resourceKubebackup) Metadata(_ context.Context, req resource.MetadataRe
 	resp.TypeName = req.ProviderTypeName + "_kubebackup"
 }
 
-// TODO: add descriptions to every editable attribute
-// TODO: RequiredWith https://developer.hashicorp.com/terraform/plugin/framework/migrating/attributes-blocks/fields
 // Schema defines the schema for the resource.
 func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
@@ -309,7 +307,7 @@ func (plan *kubebackupResourceModel) setPlanFromKubebackup(kubebackup *cloudcasa
 	return nil
 }
 
-func (r *resourceKubebackup) RunKubebackup(plan kubebackupResourceModel, backupId string) error {
+func (r *resourceKubebackup) runBackupJob(plan kubebackupResourceModel, backupId string) error {
 	// Select options for backup
 	var retentionDays int
 	if plan.Retention.IsNull() {
@@ -461,7 +459,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	err = r.RunKubebackup(plan, backupId)
+	err = r.runBackupJob(plan, backupId)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"error running backup job",
@@ -478,7 +476,6 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 }
 
 // Read refreshes the Terraform state with the latest data from CloudCasa
-// TODO: set from CC resource like in resource_policy.go
 func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Get current state
 	var state kubebackupResourceModel
@@ -627,7 +624,6 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		copyReqBody.Backupdef = updateResp.Id
 
 		// GET kubeoffload to get current ETAG
-		// TODO: do same for kubebackup/kubecluster?
 		getKubeoffload, err := r.Client.GetKubeoffload(state.Kubeoffload_id.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -675,7 +671,7 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	err = r.RunKubebackup(plan, backupId)
+	err = r.runBackupJob(plan, backupId)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"error running backup job",
