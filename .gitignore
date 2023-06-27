@@ -1,3 +1,2 @@
-test-tf/*.txt
-test-tf/*.backup
+test-tf/*
 *.txt
