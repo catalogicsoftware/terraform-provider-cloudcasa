@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-csi-snapshot
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-pass
+  namespace: test-csi-snapshot
+type: Opaque
+data:
+  password: cGFzc3dvcmQxMjM=
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-mysql
+  namespace: test-csi-snapshot
+  labels:
+    app: wordpress
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: wordpress
+    tier: mysql
+  clusterIP: None
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim2
+  namespace: test-csi-snapshot
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+  storageClassName: vsphere-csi-storageclass
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: wordpress-mysql
+  namespace: test-csi-snapshot
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: mysql
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  namespace: test-csi-snapshot
+  labels:
+    app: wordpress
+spec:
+  ports:
+    - port: 80
+      nodePort: 30999
+  selector:
+    app: wordpress
+    tier: frontend
+  type: NodePort
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pv-claim2
+  namespace: test-csi-snapshot
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+  storageClassName: vsphere-csi-storageclass
+---  
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pv-claim2-block
+  namespace: test-csi-snapshot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Block
+  resources:
+    requests:
+      storage: 100Mi
+  storageClassName: vsphere-csi-storageclass
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: wordpress
+  namespace: test-csi-snapshot
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+      - image: wordpress:5.4.1-apache
+        name: wordpress
+        
+        env:
+        - name: WORDPRESS_DB_HOST
+          value: wordpress-mysql
+        - name: WORDPRESS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        ports:
+        - containerPort: 80
+          name: wordpress
+        volumeMounts:
+        - name: wordpress-persistent-storage
+          mountPath: /var/www/html
+        volumeDevices:
+        - name: wordpress-persistent-storage-block
+          devicePath: /dev/loop100          
+      volumes:
+      - name: wordpress-persistent-storage
+        persistentVolumeClaim:
+          claimName: wp-pv-claim2
+      - name: wordpress-persistent-storage-block
+        persistentVolumeClaim:
+          claimName: wp-pv-claim2-block  
