@@ -48,6 +48,9 @@ AFTER INITIAL RELEASE:
 - RequiredWith Attributes for built in validation https://developer.hashicorp.com/terraform/plugin/framework/migrating/attributes-blocks/fields
 - Kubeoffload Options/Bucket selection
     - Define buckets?
+- Validate login in client.go
+- return AttributeErrors during attribute validation instead of generic error
+- Better KUBECONFIG selection
 
 
 

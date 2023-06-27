@@ -59,21 +59,6 @@ func (p *cloudcasaProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	// If practitioner provided a configuration value for any of the
-	// attributes, it must be a known value.
-	if config.Apikey.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("apikey"),
-			"Unknown CloudCasa API Key",
-			"The provider cannot create the CloudCasa API client as there is an unknown configuration value for the CloudCasa API Key. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the CLOUDCASA_KEY environment variable.",
-		)
-	}
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	// Default values to environment variables, but override
 	// with Terraform configuration value if set.
 	apikey := os.Getenv("CLOUDCASA_KEY")
@@ -89,8 +74,7 @@ func (p *cloudcasaProvider) Configure(ctx context.Context, req provider.Configur
 			path.Root("apikey"),
 			"Missing CloudCasa API Key",
 			"The provider cannot create the CloudCasa API client as there is a missing or empty value for the CloudCasa API key. "+
-				"Set the host value in the configuration or use the CLOUDCASA_KEY environment variable. "+
-				"If either is already set, ensure the value is not empty.",
+				"Set the key value in the configuration or use the CLOUDCASA_KEY environment variable.",
 		)
 	}
 
@@ -130,7 +114,6 @@ func (p *cloudcasaProvider) Resources(_ context.Context) []func() resource.Resou
 	}
 }
 
-// TODO: move these
 // ConvertTfStringList converts a list of TF StringValues to a list of Go string
 func ConvertTfStringList(tfList []basetypes.StringValue) []string {
 	var stringList []string

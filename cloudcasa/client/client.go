@@ -1,6 +1,7 @@
 package cloudcasa
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,16 +28,12 @@ func NewClient(apikey *string) (*Client, error) {
 
 	// If apikey is not provided, return empty client
 	if apikey == nil {
-		return &c, nil
+		return &c, errors.New("CloudCasa API key is missing")
 	}
 
 	c.Apikey = *apikey
 
-	// TODO: validate login with a test casa command
-	// ar, err := c.SignIn()
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// TODO: validate login
 
 	return &c, nil
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -144,6 +145,15 @@ func (c *Client) DeleteKubecluster(kubeclusterId string) error {
 // Assumes Kubeconfig is set
 // TODO: Validate kubeconfig
 func (c *Client) ApplyKubeagent(clusterId string, agentUrl string) error {
+	// Validate that KUBECONFIG is set
+	if kconfig, exists := os.LookupEnv("KUBECONFIG"); exists != false {
+		if kconfig == "" {
+			return errors.New("KUBECONFIG environment variable is empty, but is required for auto_install. Set this variable to the path of a valid kubeconfig file.")
+		}
+	} else {
+		return errors.New("KUBECONFIG environment variable is required for auto_install. Set this variable to the path of a valid kubeconfig file.")
+	}
+
 	kubectlCmd := exec.Command("kubectl", "apply", "-f", agentUrl)
 	_, err := kubectlCmd.Output()
 	if err != nil {
