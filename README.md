@@ -12,8 +12,9 @@ This provider allows you to install the CloudCasa agent and manage backups in yo
 ## Requirements
 
 -	[Terraform](https://www.terraform.io/downloads.html) v1.x
--   A CloudCasa API key - Visit [CloudCasa](https://home.cloudcasa.io) to sign up and create an API key under Configuration -> API Keys
--   [Go](https://golang.org/doc/install) v1.18.x (to build the provider plugin)
+- A CloudCasa API key - Visit [CloudCasa](https://home.cloudcasa.io) to sign up and create an API key under Configuration -> API Keys
+- [Go](https://golang.org/doc/install) v1.18.x (to build the provider plugin)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) (for CloudCasa agent installation)
 
 ## Getting Started
 
