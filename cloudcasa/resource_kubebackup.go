@@ -456,6 +456,8 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 
 	// If run_after_create is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
+		diags = resp.State.Set(ctx, plan)
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 
