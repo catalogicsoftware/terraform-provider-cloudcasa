@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     cloudcasa = {
-      version = "0.0.1"
+      version = "1.0.0"
       source  = "cloudcasa.io/cloudcasa/cloudcasa"
     }
   }
