@@ -13,13 +13,13 @@ CloudCasa policy configuration
 ## Example Usage
 
 ```terraform
-# Example policy
-resource "cloudcasa_policy" "example" {
-  name = "test_terraform_policy"
+# Define a policy with a cron schedule
+resource "cloudcasa_policy" "example_policy" {
+  name = "cloudcasa_policy_example"
   timezone = "America/New_York"
   schedules = [
     {
-      retention = 12,
+      retention = 7,
       cron_spec = "30 0 * * MON,FRI",
       locked = false,
     }
