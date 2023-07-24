@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-const ApiURL string = "https://api.staging.cloudcasa.io/api/v1/"
+const ApiURL string = "https://home.cloudcasa.io/api/v1/"
 const JSON string = "application/json"
 
-const LogRequests bool = true
+const LogRequests bool = false
 
 type Client struct {
 	ApiURL     string

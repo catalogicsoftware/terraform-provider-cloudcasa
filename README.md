@@ -18,27 +18,7 @@ This provider allows you to install the CloudCasa agent and manage backups in yo
 
 ## Getting Started
 
-For now the provider must be built from source and added to Terraform's development overrides. This means `terraform init` will not update the provider package, and instead the provider will be read directly from the binary path each time we run a terraform command. Because of this, just use `terraform plan` or `terraform apply` and skip `terraform init`.
-
-Check the `examples` folder for Terraform manifest templates and for a yaml containing example wordpress PVCs and deployments to test backups.
-
-### Build from Source
-
-Until we add the provider to the Hashicorp registry, we must build the provider from source in the main directory:
-```bash
-go build -o terraform-provider-cloudcasa
-```
-
-After building the binary, set a developer override for the package by editing your `.terraformrc` file. By default this is at `/home/.terraformrc`. Add the path to the binary's folder as such:
-
-```hcl
-provider_installation {
-  dev_overrides {
-    "cloudcasa.io/cloudcasa/cloudcasa" = "/home/jon/work/terraform-provider-cloudcasa"
-  }
-  direct {}
-}
-```
+Below is a small example of how to initialize the provider, install the CloudCasa agent, and take a snaoshot of a cluster. For more details and examples check the `docs` directory.
 
 ### Initialize the Provider
 
@@ -63,7 +43,11 @@ provider "cloudcasa" {
 
 #### Kubecluster
 
-Set your KUBECONFIG environment variable to the path of the cluster's kubeconfig file, otherwise agent installation will fail. OR Create a cluster without installing the agent, but this will only create a pending cluster resource in CloudCasa.
+A cloudcasa_kubecluster resource represents a Kubernetes cluster. You can import an existing CloudCasa
+cluster using `terraform import` or define a new cluster.
+
+To automatically install the CloudCasa agent on a cluster set `auto_install` to `true`. The provider
+will apply the agent spec using the environment variable `KUBECONFIG` to find the cluster context.
 
 ```hcl
 resource "cloudcasa_kubecluster" "testcluster" {
@@ -81,47 +65,22 @@ If `run_after_create` is True, the backup will be considered Adhoc and does not 
 
 You can set most options that are available in the CloudCasa UI. 
 
-For example, here is an Adhoc snapshot job with namespace filters and a pre-hook:
+For example, here is a simple Adhoc snapshot job:
 
 ```hcl
-resource "cloudcasa_kubebackup" "test_snapshot" {
-  name = "test_terraform_kubebackup"
-  kubecluster_id = resource.cloudcasa_kubecluster.testcluster.id
+resource "cloudcasa_kubebackup" "adhoc_snapshot_example" {
+  name = "cloudcasa_adhoc_snapshot_example"
+  kubecluster_id = resource.cloudcasa_kubecluster.example.id
 
-  all_namespaces = false
-  select_namespaces = [
-    "test-csi-snapshot"
-  ]
-
+  all_namespaces = true
   snapshot_persistent_volumes = true
 
   copy_persistent_volumes = false
 
-  pre_hooks = [
-    {template = true, namespaces = ["default", "test-csi-snapshot"], hooks = ["61b3bb7b555abc4d71d0a7bf"]}
-  ]
-
-  run_after_create = true       # If true, the backup will run on each "terraform apply"
+  run_after_create = true
 }
 ```
-
-Another example, here is a Copy job with a policy attached which will not run_after_create:
-
-```hcl
-resource "cloudcasa_kubebackup" "test_offload" {
-  name = "test_terraform_offload"
-  kubecluster_id = resource.cloudcasa_kubecluster.testcluster.id
-
-  all_namespaces = true
-  snapshot_persistent_volumes = true
-  copy_persistent_volumes = true
-  delete_snapshot_after_copy = false
-
-  run_after_create = false
-
-  policy_id = resource.cloudcasa_policy.testpolicy.id  
-}
-```
+For more examples see the `docs` directory.
 
 #### Policy
 
