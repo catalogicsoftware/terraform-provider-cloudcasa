@@ -2,7 +2,6 @@ package cloudcasa
 
 import (
 	"context"
-	"os"
 
 	cloudcasa "terraform-provider-cloudcasa/cloudcasa/client"
 
@@ -41,9 +40,11 @@ func (p *cloudcasaProvider) Metadata(_ context.Context, _ provider.MetadataReque
 // Schema defines the provider-level schema for configuration data.
 func (p *cloudcasaProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Interact with CloudCasa",
 		Attributes: map[string]schema.Attribute{
 			"apikey": schema.StringAttribute{
-				Required: true,
+				Description: "CloudCasa API Key for authentication. Visit https://docs.cloudcasa.io/help/apikeys.html for more details",
+				Required:    true,
 			},
 		},
 	}
@@ -59,22 +60,14 @@ func (p *cloudcasaProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	// Default values to environment variables, but override
-	// with Terraform configuration value if set.
-	apikey := os.Getenv("CLOUDCASA_KEY")
-
-	if !config.Apikey.IsNull() {
-		apikey = config.Apikey.ValueString()
-	}
-
-	// If any of the expected configurations are missing, return
-	// errors with provider-specific guidance.
+	// Validate and set config values
+	apikey := config.Apikey.ValueString()
 	if apikey == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("apikey"),
-			"Missing CloudCasa API Key",
-			"The provider cannot create the CloudCasa API client as there is a missing or empty value for the CloudCasa API key. "+
-				"Set the key value in the configuration or use the CLOUDCASA_KEY environment variable.",
+			"missing CloudCasa API Key",
+			"the provider recieved an empty value for apikey."+
+				"Set a valid API key - refer to https://docs.cloudcasa.io/help/apikeys.html for details",
 		)
 	}
 
@@ -86,8 +79,8 @@ func (p *cloudcasaProvider) Configure(ctx context.Context, req provider.Configur
 	client, err := cloudcasa.NewClient(&apikey)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Unable to Create CloudCasa API Client",
-			"An unexpected error occurred when creating the CloudCasa API client. "+
+			"unable to create CloudCasa API client",
+			"an unexpected error occurred when creating the CloudCasa API client. "+
 				"If the error is not clear, please contact the provider developers.\n\n"+
 				"CloudCasa Client Error: "+err.Error(),
 		)
