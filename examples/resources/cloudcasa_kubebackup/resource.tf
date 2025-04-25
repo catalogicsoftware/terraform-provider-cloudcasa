@@ -8,7 +8,7 @@ resource "cloudcasa_kubebackup" "adhoc_snapshot_example" {
 
   copy_persistent_volumes = false
 
-  run_after_create = true
+  run_on_apply = true
 }
 
 # Define a basic snapshot to run on a schedule (requires a policy)
@@ -20,7 +20,7 @@ resource "cloudcasa_kubebackup" "scheduled_snapshot_example" {
   snapshot_persistent_volumes = true
   copy_persistent_volumes = false
 
-  run_after_create = false
+  run_on_apply = false
   policy_id = resource.cloudcasa_policy.example_policy.id  
 }
 
@@ -45,7 +45,7 @@ resource "cloudcasa_kubebackup" "custom_snapshot_example" {
 
   copy_persistent_volumes = false
 
-  run_after_create = true
+  run_on_apply = true
 }
 
 # Define a Copy backup to offload Persistent Volume data
@@ -59,5 +59,5 @@ resource "cloudcasa_kubebackup" "copy_example" {
   copy_persistent_volumes = true
   delete_snapshot_after_copy = false
 
-  run_after_create = true
+  run_on_apply = true
 }

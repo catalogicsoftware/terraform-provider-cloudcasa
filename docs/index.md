@@ -54,7 +54,7 @@ resource "cloudcasa_kubecluster" "testcluster" {
 
 The cloudcasa_kubebackup resource refers to both snapshots and copy backups. Cluster ID of a valid CloudCasa kubecluster is required.
 
-If `run_after_create` is True, the backup will be considered Adhoc and does not require a policy ID. With this setting the backup will run any time we run `terraform apply`, even if the backup has already been created. Terraform will wait up to 5 minutes for the job to complete.
+If `run_on_apply` is True, the backup will be considered Adhoc and does not require a policy ID. With this setting the backup will run any time we run `terraform apply`, even if the backup has already been created. Terraform will wait up to 5 minutes for the job to complete.
 
 You can set most options that are available in the CloudCasa UI. 
 
@@ -70,14 +70,14 @@ resource "cloudcasa_kubebackup" "adhoc_snapshot_example" {
 
   copy_persistent_volumes = false
 
-  run_after_create = true
+  run_on_apply = true
 }
 ```
 For more examples see the `docs` directory.
 
 #### Policy
 
-Policies are required for backups that do not have run_after_create set. They are created by defining a Cron schedule for the job:
+Policies are required for backups that do not have run_on_apply set. They are created by defining a Cron schedule for the job:
 
 ```hcl
 resource "cloudcasa_policy" "testpolicy" {
@@ -123,7 +123,6 @@ resource "cloudcasa_policy" "importtest" {
   name = "test_manual_policy"
 }
 ```
-
 
 ## Example Usage
 

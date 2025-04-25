@@ -46,7 +46,7 @@ resource "cloudcasa_kubebackup" "test_snapshot" {
     {template = true, namespaces = ["default", "test-csi-snapshot"], hooks = ["61b3bb7b555abc4d71d0a7bf"]}
   ]
 
-  run_after_create = true       # If true, the backup will run on each "terraform apply"
+  run_on_apply = true       # If true, the backup will run on each "terraform apply"
 }
 
 resource "cloudcasa_kubebackup" "test_offload" {
@@ -58,7 +58,7 @@ resource "cloudcasa_kubebackup" "test_offload" {
   copy_persistent_volumes = true
   delete_snapshot_after_copy = false
 
-  run_after_create = false
+  run_on_apply = false
 
   policy_id = resource.cloudcasa_policy.testpolicy.id  
 }

@@ -37,7 +37,7 @@ type kubebackupResourceModel struct {
 	Policy_id         types.String          `tfsdk:"policy_id"`
 	Pre_hooks         []kubebackupHookModel `tfsdk:"pre_hooks"`
 	Post_hooks        []kubebackupHookModel `tfsdk:"post_hooks"`
-	Run               types.Bool            `tfsdk:"run_after_create"`
+	Run               types.Bool            `tfsdk:"run_on_apply"`
 	Retention         types.Int64           `tfsdk:"retention"`
 	All_namespaces    types.Bool            `tfsdk:"all_namespaces"`
 	Select_namespaces []types.String        `tfsdk:"select_namespaces"`
@@ -131,8 +131,8 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 					},
 				},
 			},
-			// run_after_create will determine trigger_type
-			"run_after_create": schema.BoolAttribute{
+			// run_on_apply will determine trigger_type
+			"run_on_apply": schema.BoolAttribute{
 				Optional:    true,
 				Description: "Set to run the backup immediately after creation or update. If enabled, this will also cause the backup to run on each terraform apply",
 			},
@@ -254,14 +254,14 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 		}
 	}
 
-	// If retention is set, check that run_after_create is true
+	// If retention is set, check that run_on_apply is true
 	if !plan.Retention.IsNull() {
 		if !plan.Run.ValueBool() {
-			return kubebackup, errors.New("retention is set but backup job will not run. run_after_create must be true to run the job without selecting a policy.")
+			return kubebackup, errors.New("retention is set but backup job will not run. run_on_apply must be true to run the job without selecting a policy.")
 		}
 	}
 
-	// If run_after_create, set trigger_type to ADHOC
+	// If run_on_apply, set trigger_type to ADHOC
 	if plan.Run.ValueBool() {
 		kubebackup.Trigger_type = "ADHOC"
 	} else {
@@ -269,7 +269,7 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 
 		// Exit if no policy is defined for scheduled backup
 		if plan.Policy_id.IsNull() {
-			return kubebackup, errors.New("Kubebackups run on a schedule by default and require a policy. To run an adhoc backup, set run_after_create.")
+			return kubebackup, errors.New("Kubebackups run on a schedule by default and require a policy. To run an adhoc backup, set run_on_apply.")
 		}
 	}
 
@@ -463,7 +463,7 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		plan.Offload_etag = types.StringValue(createKubeoffloadResp.Etag)
 	}
 
-	// If run_after_create is false return now. Otherwise continue and run the job
+	// If run_on_apply is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
 		diags = resp.State.Set(ctx, plan)
 		resp.Diagnostics.Append(diags...)
@@ -677,7 +677,7 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		plan.Offload_etag = types.StringValue(updateKubeoffloadResp.Etag)
 	}
 
-	// If run_after_create is false return now. Otherwise continue and run the job
+	// If run_on_apply is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
 		return
 	}
