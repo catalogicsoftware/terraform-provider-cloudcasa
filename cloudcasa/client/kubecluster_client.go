@@ -154,8 +154,25 @@ func (c *Client) ApplyKubeagent(clusterId string, agentUrl string) error {
 		return errors.New("KUBECONFIG environment variable is required for auto_install. Set this variable to the path of a valid kubeconfig file.")
 	}
 
-	kubectlCmd := exec.Command("kubectl", "apply", "-f", agentUrl)
-	_, err := kubectlCmd.Output()
+	// Check if the HTTP client is configured to skip TLS verification
+	skipTLSVerify := false
+	if transport, ok := c.HTTPClient.Transport.(*http.Transport); ok {
+		if transport.TLSClientConfig != nil && transport.TLSClientConfig.InsecureSkipVerify {
+			skipTLSVerify = true
+		}
+	}
+
+	var err error
+	if skipTLSVerify {
+		// Use curl with -k flag to handle insecure SSL connections and pipe to kubectl
+		curlCmd := exec.Command("bash", "-c", "curl -k " + agentUrl + " | kubectl apply -f -")
+		_, err = curlCmd.Output()
+	} else {
+		// Use standard kubectl apply
+		kubectlCmd := exec.Command("kubectl", "apply", "-f", agentUrl)
+		_, err = kubectlCmd.Output()
+	}
+
 	if err != nil {
 		return err
 	}
