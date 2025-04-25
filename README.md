@@ -18,7 +18,7 @@ This provider allows you to install the CloudCasa agent and manage backups in yo
 
 ## Getting Started
 
-Below is a small example of how to initialize the provider, install the CloudCasa agent, and take a snaoshot of a cluster. For more details and examples check the `docs` directory.
+Below is a small example of how to initialize the provider, install the CloudCasa agent, and take a snapshot of a cluster. For more details and examples check the `docs` directory.
 
 ### Initialize the Provider
 
@@ -28,8 +28,8 @@ In your terraform manifest, create and configure the provider:
 terraform {
   required_providers {
     cloudcasa = {
-      version = "1.0.0"
-      source  = "cloudcasa.io/cloudcasa/cloudcasa"
+      version = "1.0.1"
+      source = "catalogicsoftware/cloudcasa"
     }
   }
 }
