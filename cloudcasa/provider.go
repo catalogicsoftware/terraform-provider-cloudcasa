@@ -29,7 +29,9 @@ type cloudcasaProvider struct{}
 
 // cloudcasaProviderModel maps provider schema data to a Go type.
 type cloudcasaProviderModel struct {
-	Apikey types.String `tfsdk:"apikey"`
+	Apikey         types.String `tfsdk:"apikey"`
+	CloudcasaUrl   types.String `tfsdk:"cloudcasa_url"`
+	AllowInsecureTLS types.Bool   `tfsdk:"insecure_tls"`
 }
 
 // Metadata returns the provider type name.
@@ -45,6 +47,14 @@ func (p *cloudcasaProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			"apikey": schema.StringAttribute{
 				Description: "CloudCasa API Key for authentication. Visit https://docs.cloudcasa.io/help/apikeys.html for more details",
 				Required:    true,
+			},
+			"cloudcasa_url": schema.StringAttribute{
+				Description: "CloudCasa URL (for Selfhosted CloudCasa users). Defaults to https://home.cloudcasa.io",
+				Optional:    true,
+			},
+			"insecure_tls": schema.BoolAttribute{
+				Description: "Allow insecure TLS connections to CloudCasa. Defaults to false. Intended for Selfhosted CloudCasa servers with self-signed certificates.",
+				Optional:    true,
 			},
 		},
 	}
@@ -75,8 +85,21 @@ func (p *cloudcasaProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
+	// Get CloudCasa URL if provided or use default
+	var cloudcasaUrl *string
+	if !config.CloudcasaUrl.IsNull() {
+		value := config.CloudcasaUrl.ValueString()
+		cloudcasaUrl = &value
+	}
+
+	// Get insecure TLS setting
+	allowInsecureTLS := false
+	if !config.AllowInsecureTLS.IsNull() {
+		allowInsecureTLS = config.AllowInsecureTLS.ValueBool()
+	}
+
 	// Create a new CloudCasa client using the configuration values
-	client, err := cloudcasa.NewClient(&apikey)
+	client, err := cloudcasa.NewClient(&apikey, cloudcasaUrl, allowInsecureTLS)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"unable to create CloudCasa API client",
