@@ -36,6 +36,11 @@ terraform {
 
 provider "cloudcasa" {
   apikey = "API_KEY_HERE"
+
+  # Optional: For Selfhosted CloudCasa, set server URL
+  # cloudcasa_url = "https://cloudcasa.example.com"
+  # Optional: allow insecure TLS connections to CloudCasa server
+  # insecure_tls = true
 }
 ```
 
