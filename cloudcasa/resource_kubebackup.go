@@ -437,10 +437,22 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		copyReqBody.Backupdef = createResp.Id
 		createKubeoffloadResp, err = r.Client.CreateKubeoffload(copyReqBody)
 		if err != nil {
+			// If creating the kubeoffload fails, delete the kubebackup to avoid leaving it in an inconsistent state
+			deleteErr := r.Client.DeleteKubebackup(createResp.Id)
+			if deleteErr != nil {
+				resp.Diagnostics.AddError(
+					"error deleting kubebackup after failed kubeoffload creation",
+					deleteErr.Error(),
+				)
+			}
+			
 			resp.Diagnostics.AddError(
 				"error creating Kubeoffload",
 				err.Error(),
 			)
+			
+			// Remove the resource from state
+			resp.State.RemoveResource(ctx)
 			return
 		}
 
@@ -697,31 +709,76 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 	diags = resp.State.Set(ctx, plan)
 
 	// Update kubeoffload if copy is selected
-	var updateKubeoffloadResp *cloudcasa.Kubeoffload
 	backupId := updateResp.Id
 
 	// Set backupdef ID for kubeoffload
 	if plan.Copy_pvs.ValueBool() {
 		copyReqBody.Backupdef = updateResp.Id
 
-		// GET kubeoffload to get current ETAG
-		getKubeoffload, err := r.Client.GetKubeoffload(state.Kubeoffload_id.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"error fetching kubeoffload",
-				err.Error(),
-			)
-			return
-		}
-		plan.Offload_etag = types.StringValue(getKubeoffload.Etag)
+		// Determine whether to create or update the kubeoffload
+		var updateKubeoffloadResp *cloudcasa.Kubeoffload
+		
+		// If kubeoffload_id is empty or null in the state, we need to create a new kubeoffload
+		if state.Kubeoffload_id.IsNull() || state.Kubeoffload_id.ValueString() == "" {
+			// Create a new kubeoffload
+			updateKubeoffloadResp, err = r.Client.CreateKubeoffload(copyReqBody)
+			if err != nil {
+				// If creating the kubeoffload fails, we need to roll back to the original state
+				// or delete the kubebackup if it was already modified
+				
+				// First try to restore the kubebackup without copy settings
+				reqBody.Copydef = ""
+				restoreResp, restoreErr := r.Client.UpdateKubebackup(updateResp.Id, reqBody, updateResp.Etag)
+				if restoreErr != nil {
+					// If we can't restore the kubebackup, try to delete it to avoid leaving it in an inconsistent state
+					deleteErr := r.Client.DeleteKubebackup(updateResp.Id)
+					if deleteErr != nil {
+						resp.Diagnostics.AddError(
+							"error deleting kubebackup after failed kubeoffload creation",
+							deleteErr.Error(),
+						)
+					}
+					resp.Diagnostics.AddError(
+						"error creating kubeoffload and failed to restore original kubebackup",
+						err.Error() + " and " + restoreErr.Error(),
+					)
+					// Force a refresh to get the updated state from the server
+					resp.State.RemoveResource(ctx)
+					return
+				}
+				
+				// Update the state to reflect the restored kubebackup
+				plan.Updated = types.StringValue(restoreResp.Updated)
+				plan.Etag = types.StringValue(restoreResp.Etag)
+				plan.Copy_pvs = types.BoolValue(false)
+				
+				resp.Diagnostics.AddError(
+					"error creating kubeoffload",
+					err.Error(),
+				)
+				return
+			}
+		} else {
+			// GET kubeoffload to get current ETAG
+			getKubeoffload, err := r.Client.GetKubeoffload(state.Kubeoffload_id.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"error fetching kubeoffload",
+					err.Error(),
+				)
+				return
+			}
+			plan.Offload_etag = types.StringValue(getKubeoffload.Etag)
 
-		updateKubeoffloadResp, err = r.Client.UpdateKubeoffload(state.Kubeoffload_id.ValueString(), copyReqBody, getKubeoffload.Etag)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"error updating kubeoffload",
-				err.Error(),
-			)
-			return
+			// Update the existing kubeoffload
+			updateKubeoffloadResp, err = r.Client.UpdateKubeoffload(state.Kubeoffload_id.ValueString(), copyReqBody, getKubeoffload.Etag)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"error updating kubeoffload",
+					err.Error(),
+				)
+				return
+			}
 		}
 
 		// Set offload ID, use Offload ID as backupId for copy jobs
