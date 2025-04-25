@@ -1,6 +1,7 @@
 package cloudcasa
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-const ApiURL string = "https://home.cloudcasa.io/api/v1/"
+const DefaultApiURL string = "https://home.cloudcasa.io/api/v1/"
 const JSON string = "application/json"
 
 const LogRequests bool = false
@@ -20,10 +21,19 @@ type Client struct {
 	Apikey     string
 }
 
-func NewClient(apikey *string) (*Client, error) {
+func NewClient(apikey *string, cloudcasaUrl *string, allowInsecureTLS bool) (*Client, error) {
+	// Create HTTP client with or without TLS verification
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	
+	// If allowInsecureTLS is true, configure the client to skip certificate verification
+	if allowInsecureTLS {
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
+
 	c := Client{
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
-		ApiURL:     ApiURL,
+		HTTPClient: httpClient,
 	}
 
 	// If apikey is not provided, return empty client
@@ -32,6 +42,20 @@ func NewClient(apikey *string) (*Client, error) {
 	}
 
 	c.Apikey = *apikey
+
+	// Set API URL - use provided value or default
+	if cloudcasaUrl != nil && *cloudcasaUrl != "" {
+		c.ApiURL = *cloudcasaUrl
+		// Ensure URL ends with /api/v1/
+		if c.ApiURL[len(c.ApiURL)-1:] != "/" {
+			c.ApiURL = c.ApiURL + "/"
+		}
+		if len(c.ApiURL) < 8 || c.ApiURL[len(c.ApiURL)-8:] != "/api/v1/" {
+			c.ApiURL = c.ApiURL + "api/v1/"
+		}
+	} else {
+		c.ApiURL = DefaultApiURL
+	}
 
 	// TODO: validate login
 

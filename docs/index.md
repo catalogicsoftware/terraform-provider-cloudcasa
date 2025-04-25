@@ -16,6 +16,10 @@ Interact with CloudCasa
 # Configuration-based authentication
 provider "cloudcasa" {
   apikey = "Your API Key here"
+  # Optional: customize the CloudCasa URL 
+  # cloudcasa_url = "https://mycustomdomain.cloudcasa.io"
+  # Optional: allow insecure TLS connections (self-signed certificates)
+  # insecure_tls = true
 }
 ```
 
@@ -25,3 +29,8 @@ provider "cloudcasa" {
 ### Required
 
 - `apikey` (String) CloudCasa API Key for authentication. Visit https://docs.cloudcasa.io/help/apikeys.html for more details
+
+### Optional
+
+- `cloudcasa_url` (String) CloudCasa URL. Defaults to https://home.cloudcasa.io
+- `insecure_tls` (Boolean) Allow insecure TLS connections to CloudCasa. Defaults to false. Intended for Selfhosted CloudCasa servers with self-signed certificates.
