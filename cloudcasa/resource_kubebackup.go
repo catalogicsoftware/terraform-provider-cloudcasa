@@ -35,6 +35,7 @@ type kubebackupResourceModel struct {
 	Name              types.String          `tfsdk:"name"`
 	Kubecluster_id    types.String          `tfsdk:"kubecluster_id"`
 	Policy_id         types.String          `tfsdk:"policy_id"`
+	Copy_policy       types.String          `tfsdk:"copy_policy"`
 	Pre_hooks         []kubebackupHookModel `tfsdk:"pre_hooks"`
 	Post_hooks        []kubebackupHookModel `tfsdk:"post_hooks"`
 	Run               types.Bool            `tfsdk:"run_on_apply"`
@@ -153,6 +154,10 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 				Required:    true,
 				Description: "Set to snapshot persistent volumes. If false, PVs will be ignored",
 			},
+			"copy_policy": schema.StringAttribute{
+				Computed:    true,
+				Description: "ID of a policy used for scheduling copy backups, used internally by CloudCasa.",
+			},
 			"updated": schema.StringAttribute{
 				Computed:    true,
 				Description: "Last update time of the CloudCasa resource",
@@ -229,6 +234,8 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 
 	// Check optional fields
 	if !plan.Policy_id.IsNull() {
+		// For scheduled COPY jobs, we need to pass the policy to the API initially
+		// But we'll clear it later after getting the offload ID
 		kubebackup.Policy = plan.Policy_id.ValueString()
 	}
 
@@ -276,44 +283,40 @@ func createKubebackupFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubebacku
 	return kubebackup, nil
 }
 
-// createKubeoffloadFromPlan initializes a request body from TF values
+// Create a Kubeoffload request object from the Terraform plan
 func createKubeoffloadFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubeoffload, error) {
-	// Initialize kubeoffload body
-	kubeoffload := cloudcasa.Kubeoffload{
-		Name:             plan.Name.ValueString(),
-		Cluster:          plan.Kubecluster_id.ValueString(),
-		Delete_snapshots: plan.Delete_snapshots.ValueBool(),
-	}
 
-	// Check optional kubeoffload fields
-	if !plan.Policy_id.IsNull() {
-		kubeoffload.Policy = plan.Policy_id.ValueString()
-	}
-
+	var req cloudcasa.Kubeoffload
+	// Populate required fields
+	req.Run_backup = true
+	req.Name = plan.Name.ValueString() // Add name field for the API
+	
+	// Set trigger_type based on run_on_apply
 	if plan.Run.ValueBool() {
-		kubeoffload.Trigger_type = "ADHOC"
-		kubeoffload.Run_backup = true
+		req.Trigger_type = "ADHOC"
 	} else {
-		kubeoffload.Trigger_type = "SCHEDULED"
-		kubeoffload.Run_backup = false
+		req.Trigger_type = "SCHEDULED"
+	}
+	
+	// Set delete_snapshots field if specified
+	if !plan.Delete_snapshots.IsNull() {
+		req.Delete_snapshots = plan.Delete_snapshots.ValueBool()
 	}
 
-	return kubeoffload, nil
-}
-
-func (plan *kubebackupResourceModel) setPlanFromKubebackup(kubebackup *cloudcasa.Kubebackup) error {
-	// Set fields in plan
-	plan.Id = types.StringValue(kubebackup.Id)
-	plan.Created = types.StringValue(kubebackup.Created)
-	plan.Updated = types.StringValue(kubebackup.Updated)
-	plan.Etag = types.StringValue(kubebackup.Etag)
-
-	if !plan.Copy_pvs.ValueBool() {
-		plan.Kubeoffload_id = types.StringNull()
-		plan.Offload_etag = types.StringNull()
+	// Set the policy ID - for COPY jobs we use policy_id if set, otherwise copy_policy
+	if !plan.Policy_id.IsNull() {
+		req.Policy = plan.Policy_id.ValueString()
+	} else if !plan.Copy_policy.IsNull() && plan.Copy_policy.ValueString() != "" {
+		req.Policy = plan.Copy_policy.ValueString()
+	} else {
+		// If policy_id is null and copy_pvs is true, ensure we set an empty policy
+		req.Policy = ""
 	}
 
-	return nil
+	// Set the cluster ID
+	req.Cluster = plan.Kubecluster_id.ValueString()
+
+	return req, nil
 }
 
 func (r *resourceKubebackup) runBackupJob(plan kubebackupResourceModel, backupId string) error {
@@ -379,6 +382,11 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	// Initialize computed fields with default values for all cases
+	plan.Copy_policy = types.StringValue("")
+	plan.Offload_etag = types.StringValue("")
+	plan.Kubeoffload_id = types.StringValue("")
+
 	// Create Kubebackup object from plan values
 	reqBody, err := createKubebackupFromPlan(plan)
 	if err != nil {
@@ -412,15 +420,11 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	// Update fields in plan from creation response
-	err = plan.setPlanFromKubebackup(createResp)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"error updating TF state for created Kubebackup",
-			err.Error(),
-		)
-		return
-	}
+	// Update basic fields in plan
+	plan.Id = types.StringValue(createResp.Id)
+	plan.Created = types.StringValue(createResp.Created)
+	plan.Updated = types.StringValue(createResp.Updated)
+	plan.Etag = types.StringValue(createResp.Etag)
 
 	// Save the state here before setting copy options
 	diags = resp.State.Set(ctx, plan)
@@ -446,6 +450,11 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 
 		// Append copydef ID to original kubebackup request
 		reqBody.Copydef = createKubeoffloadResp.Id
+		
+		// For COPY jobs, clear the policy from the kubebackup (it should only be on the kubeoffload)
+		if !plan.Policy_id.IsNull() && plan.Copy_pvs.ValueBool() {
+			reqBody.Policy = ""
+		}
 
 		// Update kubebackup resource in CloudCasa
 		putResp, err := r.Client.UpdateKubebackup(createResp.Id, reqBody, createResp.Etag)
@@ -461,6 +470,18 @@ func (r *resourceKubebackup) Create(ctx context.Context, req resource.CreateRequ
 		plan.Updated = types.StringValue(putResp.Updated)
 		plan.Etag = types.StringValue(putResp.Etag)
 		plan.Offload_etag = types.StringValue(createKubeoffloadResp.Etag)
+		
+		// For COPY jobs, store the policy in copy_policy as well
+		if !plan.Policy_id.IsNull() {
+			plan.Copy_policy = types.StringValue(plan.Policy_id.ValueString())
+		} else {
+			plan.Copy_policy = types.StringValue("")
+		}
+	} else {
+		// For non-COPY jobs, ensure these fields have known values
+		plan.Copy_policy = types.StringValue("")
+		plan.Offload_etag = types.StringValue("")
+		plan.Kubeoffload_id = types.StringValue("")
 	}
 
 	// If run_on_apply is false return now. Otherwise continue and run the job
@@ -496,18 +517,17 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	// Get refreshed Kubecluster from CloudCasa
+	// Get refreshed Kubebackup from CloudCasa
 	kubebackup, err := r.Client.GetKubebackup(state.Id.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"error updating TF state for Kubebackup with ID "+state.Id.ValueString(),
+			"error reading Kubebackup with ID "+state.Id.ValueString(),
 			err.Error(),
 		)
 		return
 	}
 
 	// Overwrite state values with refreshed cloudcasa info
-	state.Id = types.StringValue(kubebackup.Id)
 	state.Name = types.StringValue(kubebackup.Name)
 	state.Kubecluster_id = types.StringValue(kubebackup.Cluster)
 	state.Kubeoffload_id = types.StringValue(kubebackup.Copydef)
@@ -541,8 +561,48 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 		}
 	}
 
-	state.Updated = types.StringValue(kubebackup.Updated)
+	// For non-COPY jobs, get policy from kubebackup
+	if kubebackup.Copydef == "" {
+		state.Copy_pvs = types.BoolValue(false)
+		state.Kubeoffload_id = types.StringValue("")
+		state.Copy_policy = types.StringValue("")
+		state.Offload_etag = types.StringValue("")
+		state.Delete_snapshots = types.BoolValue(false)
+		
+		if kubebackup.Policy != "" {
+			state.Policy_id = types.StringValue(kubebackup.Policy)
+		} else {
+			state.Policy_id = types.StringNull()
+		}
+	} else {
+		// This is a COPY job, get the kubeoffload to get its policy
+		state.Copy_pvs = types.BoolValue(true)
+		kubeoffload, err := r.Client.GetKubeoffload(kubebackup.Copydef)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"error reading Kubeoffload with ID "+kubebackup.Copydef,
+				err.Error(),
+			)
+			return
+		}
+		
+		state.Offload_etag = types.StringValue(kubeoffload.Etag)
+		state.Delete_snapshots = types.BoolValue(kubeoffload.Delete_snapshots)
+		
+		// For COPY jobs, the policy_id from Terraform is stored in the kubeoffload's policy field
+		// so we need to keep it in the policy_id field in the state
+		if kubeoffload.Policy != "" {
+			state.Policy_id = types.StringValue(kubeoffload.Policy)
+			state.Copy_policy = types.StringValue(kubeoffload.Policy)
+		} else {
+			state.Policy_id = types.StringNull()
+			state.Copy_policy = types.StringValue("")
+		}
+	}
+
+	// Set metadata
 	state.Created = types.StringValue(kubebackup.Created)
+	state.Updated = types.StringValue(kubebackup.Updated)
 	state.Etag = types.StringValue(kubebackup.Etag)
 
 	// Set refreshed state
@@ -562,6 +622,11 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Initialize computed fields with default values for all cases
+	plan.Copy_policy = types.StringValue("")
+	plan.Offload_etag = types.StringValue("")
+	plan.Kubeoffload_id = types.StringValue("")
 
 	// Retrieve values from TF state
 	// need etag value to edit the existing object
@@ -614,14 +679,19 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	// Update fields in plan from creation response
-	err = plan.setPlanFromKubebackup(updateResp)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"error updating TF state for created Kubebackup",
-			err.Error(),
-		)
-		return
+	// Update basic fields in plan
+	plan.Id = types.StringValue(updateResp.Id)
+	plan.Created = types.StringValue(updateResp.Created)
+	plan.Updated = types.StringValue(updateResp.Updated)
+	plan.Etag = types.StringValue(updateResp.Etag)
+	
+	// Initialize computed fields with empty strings for non-copy jobs
+	// or if we're switching from copy to non-copy
+	if !plan.Copy_pvs.ValueBool() {
+		plan.Copy_policy = types.StringValue("")
+		plan.Offload_etag = types.StringValue("")
+		// Ensure kubeoffload_id is set to a known empty value
+		plan.Kubeoffload_id = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -660,6 +730,11 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 
 		// Append copydef ID to original kubebackup request
 		reqBody.Copydef = updateKubeoffloadResp.Id
+		
+		// For COPY jobs, clear the policy from the kubebackup (it should only be on the kubeoffload)
+		if !plan.Policy_id.IsNull() && plan.Copy_pvs.ValueBool() {
+			reqBody.Policy = ""
+		}
 
 		// Update kubebackup resource in CloudCasa
 		putResp, err := r.Client.UpdateKubebackup(updateResp.Id, reqBody, updateResp.Etag)
@@ -675,10 +750,25 @@ func (r *resourceKubebackup) Update(ctx context.Context, req resource.UpdateRequ
 		plan.Updated = types.StringValue(putResp.Updated)
 		plan.Etag = types.StringValue(putResp.Etag)
 		plan.Offload_etag = types.StringValue(updateKubeoffloadResp.Etag)
+		
+		// For COPY jobs, store the policy in copy_policy as well
+		if !plan.Policy_id.IsNull() {
+			plan.Copy_policy = types.StringValue(plan.Policy_id.ValueString())
+		} else {
+			// If policy_id is null but copy_pvs is true, ensure copy_policy is empty
+			plan.Copy_policy = types.StringValue("")
+		}
+	} else {
+		// For non-COPY jobs, ensure these fields have known values
+		plan.Copy_policy = types.StringValue("")
+		plan.Offload_etag = types.StringValue("")
+		plan.Kubeoffload_id = types.StringValue("")
 	}
 
 	// If run_on_apply is false return now. Otherwise continue and run the job
 	if !plan.Run.ValueBool() {
+		diags = resp.State.Set(ctx, plan)
+		resp.Diagnostics.Append(diags...)
 		return
 	}
 
