@@ -23,7 +23,7 @@ resource "cloudcasa_kubebackup" "adhoc_snapshot_example" {
 
   copy_persistent_volumes = false
 
-  run_after_create = true
+  run_on_apply = true
 }
 
 # Define a basic snapshot to run on a schedule (requires a policy)
@@ -35,7 +35,7 @@ resource "cloudcasa_kubebackup" "scheduled_snapshot_example" {
   snapshot_persistent_volumes = true
   copy_persistent_volumes = false
 
-  run_after_create = false
+  run_on_apply = false
   policy_id = resource.cloudcasa_policy.example_policy.id  
 }
 
@@ -60,7 +60,7 @@ resource "cloudcasa_kubebackup" "custom_snapshot_example" {
 
   copy_persistent_volumes = false
 
-  run_after_create = true
+  run_on_apply = true
 }
 
 # Define a Copy backup to offload Persistent Volume data
@@ -74,7 +74,7 @@ resource "cloudcasa_kubebackup" "copy_example" {
   copy_persistent_volumes = true
   delete_snapshot_after_copy = false
 
-  run_after_create = true
+  run_on_apply = true
 }
 ```
 
@@ -97,7 +97,7 @@ resource "cloudcasa_kubebackup" "copy_example" {
 - `post_hooks` (Attributes List) Post-backup app hooks to execute. See https://docs.cloudcasa.io/help/configuration-apphook.html for details (see [below for nested schema](#nestedatt--post_hooks))
 - `pre_hooks` (Attributes List) Pre-backup app hooks to execute. See https://docs.cloudcasa.io/help/configuration-apphook.html for details (see [below for nested schema](#nestedatt--pre_hooks))
 - `retention` (Number) Number of days to retain backup data for
-- `run_after_create` (Boolean) Set to run the backup immediately after creation or update. If enabled, this will also cause the backup to run on each terraform apply
+- `run_on_apply` (Boolean) Set to run the backup immediately after creation or update. If enabled, this will also cause the backup to run on each terraform apply
 - `select_namespaces` (List of String) List of namespaces to include in the backup
 
 ### Read-Only
