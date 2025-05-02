@@ -17,9 +17,9 @@ type Kubeoffload struct {
 	Delete_snapshots  bool                `json:"delete_snapshots,omitempty"`
 	Run_backup        bool                `json:"run_backup,omitempty"`
 	Policy            string              `json:"policy,omitempty"`
-	Skip_live_copy    bool                `json:"skip_live_copy,omitempty"`
 	Snapshot_longhorn bool                `json:"snapshot_longhorn,omitempty"`
 	Offload_provider  KubeoffloadProvider `json:"offload_provider,omitempty"`
+	Options           map[string]interface{} `json:"options,omitempty"`
 	Updated           string              `json:"_updated,omitempty"`
 	Created           string              `json:"_created,omitempty"`
 	Etag              string              `json:"_etag,omitempty"`

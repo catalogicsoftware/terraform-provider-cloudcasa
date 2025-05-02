@@ -92,7 +92,7 @@ func (c *Client) WatchJobUntilComplete(jobId string) (*Job, error) {
 		return nil, err
 	}
 
-	doneStates := []string{"COMPLETED", "SKIPPED", "PARTIAL"}
+	doneStates := []string{"COMPLETED", "SKIPPED", "PARTIAL", "CANCELLED"}
 
 	// Wait 5 minutes for job to complete
 	for i := 1; i < 60; i++ {
