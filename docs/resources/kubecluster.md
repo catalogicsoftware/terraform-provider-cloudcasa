@@ -14,10 +14,26 @@ CloudCasa kubecluster configuration
 
 ```terraform
 # Define a kubecluster resource and install the agent on the active cluster (using KUBECONFIG env var)
-resource "cloudcasa_kubecluster" "exmaple_kubecluster" {
+resource "cloudcasa_kubecluster" "example_kubecluster" {
   name = "cloudcasa_example_kubecluster"
 
   auto_install = true
+}
+
+# Define a kubecluster with an associated objectstore for backups
+resource "cloudcasa_objectstore" "example_s3" {
+  name          = "example-s3-objectstore"
+  provider_type = "s3"
+  bucket_name   = "my-backup-bucket"
+  endpoint_url  = "https://s3.amazonaws.com"
+  access_key    = "AKIAIOSFODNN7EXAMPLE"
+  secret_key    = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+}
+
+resource "cloudcasa_kubecluster" "cluster_with_objectstore" {
+  name             = "cluster-with-objectstore"
+  auto_install     = true
+  objectstore_id   = cloudcasa_objectstore.example_s3.id
 }
 ```
 
@@ -31,6 +47,7 @@ resource "cloudcasa_kubecluster" "exmaple_kubecluster" {
 ### Optional
 
 - `auto_install` (Boolean) Automatically install the CloudCasa agent and register the current kubernetes cluster. Uses KUBECONFIG environment variable for cluster context.Set to false to manage or reference a CloudCasa kubecluster resource without installing the agent on a cluster.
+- `objectstore_id` (String) ID of the CloudCasa objectstore to use for backups.
 
 ### Read-Only
 
