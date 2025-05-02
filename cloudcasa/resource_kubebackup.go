@@ -46,6 +46,7 @@ type kubebackupResourceModel struct {
 	Copy_pvs          types.Bool            `tfsdk:"copy_persistent_volumes"`
 	Delete_snapshots  types.Bool            `tfsdk:"delete_snapshot_after_copy"`
 	Kubeoffload_id    types.String          `tfsdk:"kubeoffload_id"`
+	Objectstore_id    types.String          `tfsdk:"objectstore_id"`
 	Updated           types.String          `tfsdk:"updated"`
 	Created           types.String          `tfsdk:"created"`
 	Etag              types.String          `tfsdk:"etag"`
@@ -187,6 +188,10 @@ func (r *resourceKubebackup) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:    true,
 				Description: "ID of the associated kubeoffload resource created for Copy backups",
 			},
+			"objectstore_id": schema.StringAttribute{
+				Optional:    true,
+				Description: "ID of the CloudCasa objectstore to use for backups. Only applies when copy_persistent_volumes is true.",
+			},
 		},
 	}
 }
@@ -315,6 +320,11 @@ func createKubeoffloadFromPlan(plan kubebackupResourceModel) (cloudcasa.Kubeoffl
 
 	// Set the cluster ID
 	req.Cluster = plan.Kubecluster_id.ValueString()
+	
+	// Set the user_objectstore ID if specified
+	if !plan.Objectstore_id.IsNull() {
+		req.Offload_provider.UserObjectstore = plan.Objectstore_id.ValueString()
+	}
 
 	return req, nil
 }
@@ -609,6 +619,13 @@ func (r *resourceKubebackup) Read(ctx context.Context, req resource.ReadRequest,
 		} else {
 			state.Policy_id = types.StringNull()
 			state.Copy_policy = types.StringValue("")
+		}
+		
+		// Get the objectstore_id if it exists
+		if kubeoffload.Offload_provider.UserObjectstore != "" {
+			state.Objectstore_id = types.StringValue(kubeoffload.Offload_provider.UserObjectstore)
+		} else {
+			state.Objectstore_id = types.StringNull()
 		}
 	}
 

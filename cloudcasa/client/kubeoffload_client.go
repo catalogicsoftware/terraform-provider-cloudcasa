@@ -20,22 +20,14 @@ type Kubeoffload struct {
 	Skip_live_copy    bool                `json:"skip_live_copy,omitempty"`
 	Snapshot_longhorn bool                `json:"snapshot_longhorn,omitempty"`
 	Offload_provider  KubeoffloadProvider `json:"offload_provider,omitempty"`
-	Options           KubeoffloadOptions  `json:"options,omitempty"`
 	Updated           string              `json:"_updated,omitempty"`
 	Created           string              `json:"_created,omitempty"`
 	Etag              string              `json:"_etag,omitempty"`
 	Status            KubeoffloadStatus   `json:"status,omitempty"`
 }
 
-// TODO: check custom bucket settings
 type KubeoffloadProvider struct {
-	Type   string `json:"type,omitempty"`
-	Region string `json:"region,omitempty"`
-}
-
-// TODO check Options
-type KubeoffloadOptions struct {
-	Example string `json:"example,omitempty"`
+	UserObjectstore string `json:"user_objectstore,omitempty"`
 }
 
 type KubeoffloadStatus struct {
