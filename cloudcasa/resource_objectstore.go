@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -47,12 +48,12 @@ type objectstoreResourceModel struct {
 	AccessKey         types.String `tfsdk:"access_key"`
 	SecretKey         types.String `tfsdk:"secret_key"`
 	// Azure-specific fields
-	SubscriptionId    types.String `tfsdk:"subscription_id"`
-	TenantId          types.String `tfsdk:"tenant_id"`
-	ClientId          types.String `tfsdk:"client_id"`
-	ClientSecret      types.String `tfsdk:"client_secret"`
-	Cloud             types.String `tfsdk:"cloud"`
-	ResourceGroupName types.String `tfsdk:"resource_group_name"`
+	SubscriptionId     types.String `tfsdk:"subscription_id"`
+	TenantId           types.String `tfsdk:"tenant_id"`
+	ClientId           types.String `tfsdk:"client_id"`
+	ClientSecret       types.String `tfsdk:"client_secret"`
+	GovernmentCloud    types.Bool   `tfsdk:"government_cloud"`
+	ResourceGroupName  types.String `tfsdk:"resource_group_name"`
 	StorageAccountName types.String `tfsdk:"storage_account_name"`
 	// Common fields
 	Updated           types.String `tfsdk:"updated"`
@@ -84,6 +85,9 @@ func (r *resourceObjectstore) Schema(_ context.Context, _ resource.SchemaRequest
 			"private": schema.BoolAttribute{
 				Optional:    true,
 				Description: "Enable for storage location which is isolated from CloudCasa server. Defaults to false.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
 			},
 			"proxy_cluster": schema.StringAttribute{
 				Optional:    true,
@@ -95,14 +99,23 @@ func (r *resourceObjectstore) Schema(_ context.Context, _ resource.SchemaRequest
 				Validators: []validator.String{
 					stringvalidator.OneOf("s3", "azure"),
 				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"bucket_name": schema.StringAttribute{
 				Optional:    true,
-				Description: "The name of the S3 bucket or Azure storage container. Required for 's3' and 'azure' provider types.",
+				Description: "The name of the S3 bucket. Required if provider_type is 's3'.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"region": schema.StringAttribute{
 				Optional:    true,
-				Description: "The region for the storage provider. Required for 's3' and 'azure' provider types.",
+				Description: "The region for the storage provider. Required if provider_type is 'azure'.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"skip_tls_validation": schema.BoolAttribute{
 				Optional:    true,
@@ -111,6 +124,9 @@ func (r *resourceObjectstore) Schema(_ context.Context, _ resource.SchemaRequest
 			"endpoint_url": schema.StringAttribute{
 				Optional:    true,
 				Description: "The endpoint URL for the S3 provider. Required if provider_type is 's3'.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"subscription_id": schema.StringAttribute{
 				Optional:    true,
@@ -132,13 +148,16 @@ func (r *resourceObjectstore) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "The Azure client secret. Required if provider_type is 'azure'.",
 				Sensitive:   true,
 			},
-			"cloud": schema.StringAttribute{
+			"government_cloud": schema.BoolAttribute{
 				Optional:    true,
-				Description: "The Azure cloud type. Required if provider_type is 'azure'. Default: 'Public'.",
+				Description: "Whether the object store is in the Azure government cloud. Defaults to false.",
 			},
 			"resource_group_name": schema.StringAttribute{
 				Optional:    true,
 				Description: "The Azure resource group name. Required if provider_type is 'azure'.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"storage_account_name": schema.StringAttribute{
 				Optional:    true,
@@ -183,9 +202,9 @@ func (r *resourceObjectstore) Configure(_ context.Context, req resource.Configur
 func CreateObjectstoreFromPlan(plan objectstoreResourceModel) (*cloudcasa.Objectstore, error) {
 	// Create objectstore object
 	objectstore := &cloudcasa.Objectstore{
-		Name:                      plan.Name.ValueString(),
-		Private:                   plan.Private.ValueBool(),
-		SkipTlsCertificateValidation: plan.SkipTlsValidation.ValueBool(),
+		Name:                           plan.Name.ValueString(),
+		Private:                        plan.Private.ValueBool(),
+		SkipTlsCertificateValidation:   plan.SkipTlsValidation.ValueBool(),
 	}
 
 	// Translate from user-facing "s3" to CloudCasa API's "aws"
@@ -206,21 +225,21 @@ func CreateObjectstoreFromPlan(plan objectstoreResourceModel) (*cloudcasa.Object
 		objectstore.ProxyClusterList = []string{plan.ProxyCluster.ValueString()}
 	}
 
-	// Common fields for all provider types
-	if plan.BucketName.IsNull() {
-		return nil, fmt.Errorf("bucket_name is required for all provider types")
+	// Add region if provided
+	if !plan.Region.IsNull() {
+		objectstore.Region = plan.Region.ValueString()
 	}
-	if plan.Region.IsNull() {
-		return nil, fmt.Errorf("region is required for all provider types")
-	}
-	objectstore.BucketName = plan.BucketName.ValueString()
-	objectstore.Region = plan.Region.ValueString()
 
 	// Add S3-specific fields if provider_type is 's3'
 	if plan.ProviderType.ValueString() == "s3" {
 		// Validate all required fields for S3
+		if plan.BucketName.IsNull() {
+			return nil, fmt.Errorf("bucket_name is required for provider_type 's3'")
+		}
+		
+		objectstore.BucketName = plan.BucketName.ValueString()
 		if plan.EndpointUrl.IsNull() {
-			return nil, fmt.Errorf("endpoint_url is required when provider_type is 's3'")
+			return nil, fmt.Errorf("endpoint_url is required for provider_type 's3'")
 		}
 		
 		// Set up the S3Provider with endpoint
@@ -240,22 +259,25 @@ func CreateObjectstoreFromPlan(plan objectstoreResourceModel) (*cloudcasa.Object
 	if plan.ProviderType.ValueString() == "azure" {
 		// Validate all required fields for Azure
 		if plan.SubscriptionId.IsNull() {
-			return nil, fmt.Errorf("subscription_id is required when provider_type is 'azure'")
+			return nil, fmt.Errorf("subscription_id is required for provider_type 'azure'")
 		}
 		if plan.TenantId.IsNull() {
-			return nil, fmt.Errorf("tenant_id is required when provider_type is 'azure'")
+			return nil, fmt.Errorf("tenant_id is required for provider_type 'azure'")
 		}
 		if plan.ClientId.IsNull() {
-			return nil, fmt.Errorf("client_id is required when provider_type is 'azure'")
+			return nil, fmt.Errorf("client_id is required for provider_type 'azure'")
 		}
 		if plan.ClientSecret.IsNull() {
-			return nil, fmt.Errorf("client_secret is required when provider_type is 'azure'")
+			return nil, fmt.Errorf("client_secret is required for provider_type 'azure'")
 		}
 		if plan.ResourceGroupName.IsNull() {
-			return nil, fmt.Errorf("resource_group_name is required when provider_type is 'azure'")
+			return nil, fmt.Errorf("resource_group_name is required for provider_type 'azure'")
 		}
 		if plan.StorageAccountName.IsNull() {
-			return nil, fmt.Errorf("storage_account_name is required when provider_type is 'azure'")
+			return nil, fmt.Errorf("storage_account_name is required for provider_type 'azure'")
+		}
+		if plan.Region.IsNull() {
+			return nil, fmt.Errorf("region is required for provider_type 'azure'")
 		}
 		
 		// Set up Azure credentials
@@ -268,22 +290,22 @@ func CreateObjectstoreFromPlan(plan objectstoreResourceModel) (*cloudcasa.Object
 		objectstore.S3Provider.ResourceGroupName = plan.ResourceGroupName.ValueString()
 		objectstore.S3Provider.StorageAccountName = plan.StorageAccountName.ValueString()
 		
-		// Set cloud if provided, otherwise use default
-		if !plan.Cloud.IsNull() {
-			objectstore.S3Provider.Cloud = plan.Cloud.ValueString()
+		// Set Cloud based on government_cloud boolean
+		if !plan.GovernmentCloud.IsNull() && plan.GovernmentCloud.ValueBool() {
+			objectstore.S3Provider.Cloud = "Government" // Government cloud
 		} else {
-			objectstore.S3Provider.Cloud = "Public" // Default cloud type
+			objectstore.S3Provider.Cloud = "Public" // Default
 		}
 	}
 
 	// Validate that proxy_cluster is provided if private is true
 	if plan.Private.ValueBool() {
 		if plan.ProxyCluster.IsNull() {
-			return nil, fmt.Errorf("proxy_cluster is required when private is true")
+			return nil, fmt.Errorf("proxy_cluster is required for private objectstore")
 		}
 		// Ensure we have a valid non-empty cluster ID
 		if plan.ProxyCluster.ValueString() == "" {
-			return nil, fmt.Errorf("proxy_cluster cannot be empty when private is true")
+			return nil, fmt.Errorf("proxy_cluster cannot be empty for private objectstore")
 		}
 	}
 
@@ -393,28 +415,32 @@ func (r *resourceObjectstore) Read(ctx context.Context, req resource.ReadRequest
 			state.Region = types.StringValue(objectstoreResp.Region)
 		}
 		
-		state.SkipTlsValidation = types.BoolValue(objectstoreResp.SkipTlsCertificateValidation)
+		// Only set if skip_tls_validation is explicitly returned
+		if !state.SkipTlsValidation.IsNull() {
+			state.SkipTlsValidation = types.BoolValue(objectstoreResp.SkipTlsCertificateValidation)
+		}
 		
-		// We only set the access key if it's returned, secret key is almost always masked
 		if objectstoreResp.S3Provider.Credentials.AccessKey != "" {
 			state.AccessKey = types.StringValue(objectstoreResp.S3Provider.Credentials.AccessKey)
 		}
-		
-		// We don't set the secret key from the response as it's often masked
-		// The API might not return the actual secret value for security reasons
+
 	} else if objectstoreResp.ProviderType == "azure" {
-		// Set Azure-specific values
-		if objectstoreResp.BucketName != "" {
-			state.BucketName = types.StringValue(objectstoreResp.BucketName)
-		}
-		
 		if objectstoreResp.Region != "" {
 			state.Region = types.StringValue(objectstoreResp.Region)
 		}
 		
-		// Set Azure provider details
 		if objectstoreResp.S3Provider.Cloud != "" {
-			state.Cloud = types.StringValue(objectstoreResp.S3Provider.Cloud)
+			// Convert from Cloud string to government_cloud boolean
+			if objectstoreResp.S3Provider.Cloud == "Government" {
+				state.GovernmentCloud = types.BoolValue(true)
+			} else if !state.GovernmentCloud.IsNull() {
+				state.GovernmentCloud = types.BoolValue(false)
+			}
+		} else {
+			// Only set default if the field is not null in state
+			if !state.GovernmentCloud.IsNull() {
+				state.GovernmentCloud = types.BoolValue(false)
+			}
 		}
 		
 		if objectstoreResp.S3Provider.ResourceGroupName != "" {
@@ -438,7 +464,10 @@ func (r *resourceObjectstore) Read(ctx context.Context, req resource.ReadRequest
 			state.ClientId = types.StringValue(objectstoreResp.S3Provider.Credentials.ClientId)
 		}
 		
-		state.SkipTlsValidation = types.BoolValue(objectstoreResp.SkipTlsCertificateValidation)
+		// Only set if skip_tls_validation is explicitly returned
+		if !state.SkipTlsValidation.IsNull() {
+			state.SkipTlsValidation = types.BoolValue(objectstoreResp.SkipTlsCertificateValidation)
+		}
 	}
 
 	// Set refreshed state
