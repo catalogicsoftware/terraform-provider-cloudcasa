@@ -55,6 +55,24 @@ resource "cloudcasa_kubecluster" "testcluster" {
 }
 ```
 
+#### Objectstore
+
+The cloudcasa_objectstore resource defines storage locations for CloudCasa backups. CloudCasa supports both AWS S3 and Azure Blob Storage as backend storage providers.
+
+```hcl
+resource "cloudcasa_objectstore" "s3_example" {
+  name          = "my-s3-storage"
+  provider_type = "s3"
+  bucket_name   = "my-backup-bucket"
+  endpoint_url  = "https://s3.amazonaws.com"
+  region        = "us-east-1"
+  access_key    = "AKIAIOSFODNN7EXAMPLE"
+  secret_key    = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+}
+```
+
+An objectstore can be associated with a kubecluster for all backups, or with specific kubebackup resources for copy backups.
+
 #### Kubebackup
 
 The cloudcasa_kubebackup resource refers to both snapshots and copy backups. Cluster ID of a valid CloudCasa kubecluster is required.

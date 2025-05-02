@@ -31,13 +31,16 @@ type KubeclusterStatus struct {
 
 // GetKubeclusterResp maps the GET response received from CloudCasa
 type GetKubeclusterResp struct {
-	Id      string            `json:"_id"`
-	Name    string            `json:"name"`
-	Updated string            `json:"_updated"`
-	Created string            `json:"_created"`
-	Etag    string            `json:"_etag"`
-	Status  KubeclusterStatus `json:"status"`
-	Links   struct{}          `json:"_links"`
+	Id             string            `json:"_id"`
+	Name           string            `json:"name"`
+	Updated        string            `json:"_updated"`
+	Created        string            `json:"_created"`
+	Etag           string            `json:"_etag"`
+	Status         KubeclusterStatus `json:"status"`
+	Links          struct{}          `json:"_links"`
+	BackupProvider struct {
+		UserObjectstore string `json:"user_objectstore,omitempty"`
+	} `json:"backup_provider,omitempty"`
 }
 
 // CreateKubecluster creates a resource in CloudCasa and returns a struct with important fields

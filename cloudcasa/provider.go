@@ -127,6 +127,7 @@ func (p *cloudcasaProvider) Resources(_ context.Context) []func() resource.Resou
 		NewResourceKubecluster,
 		NewResourceKubebackup,
 		NewResourcePolicy,
+		NewResourceObjectstore,
 	}
 }
 

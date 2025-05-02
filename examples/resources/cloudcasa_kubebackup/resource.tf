@@ -61,3 +61,28 @@ resource "cloudcasa_kubebackup" "copy_example" {
 
   run_on_apply = true
 }
+
+# Define a Copy backup using a specific objectstore
+resource "cloudcasa_objectstore" "example_s3" {
+  name          = "example-s3-objectstore"
+  provider_type = "s3"
+  bucket_name   = "my-backup-bucket"
+  endpoint_url  = "https://s3.amazonaws.com"
+  region        = "us-east-1" 
+  access_key    = "AKIAIOSFODNN7EXAMPLE"
+  secret_key    = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+}
+
+resource "cloudcasa_kubebackup" "copy_with_objectstore" {
+  name = "cloudcasa_copy_with_objectstore"
+  kubecluster_id = resource.cloudcasa_kubecluster.testcluster.id
+
+  all_namespaces = true
+  snapshot_persistent_volumes = true
+
+  copy_persistent_volumes = true
+  delete_snapshot_after_copy = false
+  objectstore_id = cloudcasa_objectstore.example_s3.id
+
+  run_on_apply = true
+}
