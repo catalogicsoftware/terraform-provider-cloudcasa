@@ -11,6 +11,7 @@ resource "cloudcasa_objectstore" "example_s3" {
   provider_type = "s3"
   bucket_name   = "my-backup-bucket"
   endpoint_url  = "https://s3.amazonaws.com"
+  region        = "us-east-1"
   access_key    = "AKIAIOSFODNN7EXAMPLE"
   secret_key    = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 }
