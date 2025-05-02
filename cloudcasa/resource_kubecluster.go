@@ -31,15 +31,16 @@ type resourceKubecluster struct {
 
 // kubeclusterResourceModel maps the resource schema data.
 type kubeclusterResourceModel struct {
-	Name         types.String `tfsdk:"name"`
-	Id           types.String `tfsdk:"id"`
-	Auto_install types.Bool   `tfsdk:"auto_install"`
-	Updated      types.String `tfsdk:"updated"`
-	Created      types.String `tfsdk:"created"`
-	Etag         types.String `tfsdk:"etag"`
-	Status       types.Map    `tfsdk:"status"`
-	Links        types.Map    `tfsdk:"links"`
-	Agent_url    types.String `tfsdk:"agent_url"`
+	Name             types.String `tfsdk:"name"`
+	Id               types.String `tfsdk:"id"`
+	Auto_install     types.Bool   `tfsdk:"auto_install"`
+	Updated          types.String `tfsdk:"updated"`
+	Created          types.String `tfsdk:"created"`
+	Etag             types.String `tfsdk:"etag"`
+	Status           types.Map    `tfsdk:"status"`
+	Links            types.Map    `tfsdk:"links"`
+	Agent_url        types.String `tfsdk:"agent_url"`
+	UserObjectstore  types.String `tfsdk:"objectstore_id"`
 }
 
 // Metadata returns the data source type name.
@@ -94,6 +95,10 @@ func (r *resourceKubecluster) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:    true,
 				Description: "CloudCasa Kubeagent installation manifest URL",
 			},
+			"objectstore_id": schema.StringAttribute{
+				Optional:    true,
+				Description: "ID of the CloudCasa objectstore to use for backups",
+			},
 		},
 	}
 }
@@ -118,8 +123,15 @@ func (r *resourceKubecluster) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	// Define kubecluster object
-	reqBody := map[string]string{
+	reqBody := map[string]interface{}{
 		"name": plan.Name.ValueString(),
+	}
+
+	// Add backup_provider.user_objectstore if specified
+	if !plan.UserObjectstore.IsNull() {
+		reqBody["backup_provider"] = map[string]string{
+			"user_objectstore": plan.UserObjectstore.ValueString(),
+		}
 	}
 
 	// Create kubecluster in cloudcasa
@@ -240,6 +252,13 @@ func (r *resourceKubecluster) Read(ctx context.Context, req resource.ReadRequest
 	state.Created = types.StringValue(getKubeclusterResp.Created)
 	state.Updated = types.StringValue(getKubeclusterResp.Updated)
 	state.Etag = types.StringValue(getKubeclusterResp.Etag)
+	
+	// Handle user_objectstore if present in the response
+	if getKubeclusterResp.BackupProvider.UserObjectstore != "" {
+		state.UserObjectstore = types.StringValue(getKubeclusterResp.BackupProvider.UserObjectstore)
+	} else {
+		state.UserObjectstore = types.StringNull()
+	}
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -259,8 +278,7 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	// Retrieve values from TF state
-	// need etag value to edit the existing object
+	// Get current state
 	var state kubeclusterResourceModel
 	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -268,37 +286,49 @@ func (r *resourceKubecluster) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	// Generate API request body from plan
-	// NAME is editable
-	reqBody := map[string]string{
+	// Define update body
+	reqBody := map[string]interface{}{
 		"name": plan.Name.ValueString(),
 	}
 
-	// Update kubecluster in CloudCasa
-	updateResp, err := r.Client.UpdateKubecluster(plan.Id.ValueString(), reqBody, state.Etag.ValueString())
+	// Add backup_provider.user_objectstore if specified
+	if !plan.UserObjectstore.IsNull() {
+		reqBody["backup_provider"] = map[string]string{
+			"user_objectstore": plan.UserObjectstore.ValueString(),
+		}
+	}
 
+	// Update kubecluster in cloudcasa
+	kubeclusterId := state.Id.ValueString()
+	updateResp, err := r.Client.UpdateKubecluster(kubeclusterId, reqBody, state.Etag.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Updating Kubecluster",
-			err.Error(),
+			"Error Updating CloudCasa Kubecluster",
+			"Could not update CloudCasa kubecluster ID "+kubeclusterId+": "+err.Error(),
 		)
 		return
 	}
 
-	// Overwrite values with refreshed state
-	// Set fields in plan
+	// Update state with refreshed values
 	plan.Id = types.StringValue(updateResp.Id)
 	plan.Name = types.StringValue(updateResp.Name)
-	plan.Created = types.StringValue(updateResp.Created)
 	plan.Updated = types.StringValue(updateResp.Updated)
+	plan.Created = types.StringValue(updateResp.Created)
 	plan.Etag = types.StringValue(updateResp.Etag)
-
+	
 	// Check that Agent URL was fetched successfully
 	kubeclusterStatus := updateResp.Status
 	if len(kubeclusterStatus.Agent_url) == 0 {
 		plan.Agent_url = types.StringValue("")
 	} else {
 		plan.Agent_url = types.StringValue(kubeclusterStatus.Agent_url)
+	}
+	
+	// Handle user_objectstore from response
+	if updateResp.BackupProvider.UserObjectstore != "" {
+		plan.UserObjectstore = types.StringValue(updateResp.BackupProvider.UserObjectstore)
+	} else {
+		plan.UserObjectstore = types.StringNull()
 	}
 
 	// Save state before returning
