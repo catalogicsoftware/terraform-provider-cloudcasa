@@ -56,13 +56,29 @@ resource "cloudcasa_kubebackup" "test_offload" {
   all_namespaces = true
   snapshot_persistent_volumes = true
   copy_persistent_volumes = true
-  delete_snapshot_after_copy = false
 
   run_on_apply = false
 
   policy_id = resource.cloudcasa_policy.testpolicy.id  
 }
 
+resource "cloudcasa_kubebackup" "example_kubebackup" {
+  name = "Example Kubebackup"
+  kubecluster_id = cloudcasa_kubecluster.example_cluster.id
+  
+  policy_id = cloudcasa_policy.example_schedule.id
+  
+  all_namespaces = true
+  snapshot_persistent_volumes = true
+  
+  copy_persistent_volumes = true
+  objectstore_id = cloudcasa_objectstore.example_s3.id
+  copy_options = jsonencode({
+    "pvc_parallelism": 4,
+    "total_file_parallelism": 48,
+    "upload_speed_limit": 100000000
+  })
+}
 
 output "testcluster_data" {
   value = resource.cloudcasa_kubecluster.testcluster

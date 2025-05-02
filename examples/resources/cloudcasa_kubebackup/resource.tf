@@ -57,7 +57,6 @@ resource "cloudcasa_kubebackup" "copy_example" {
   snapshot_persistent_volumes = true
 
   copy_persistent_volumes = true
-  delete_snapshot_after_copy = false
 
   run_on_apply = true
 }
@@ -81,8 +80,32 @@ resource "cloudcasa_kubebackup" "copy_with_objectstore" {
   snapshot_persistent_volumes = true
 
   copy_persistent_volumes = true
-  delete_snapshot_after_copy = false
   objectstore_id = cloudcasa_objectstore.example_s3.id
 
   run_on_apply = true
+}
+
+# Advanced offload configuration using copy_options
+resource "cloudcasa_kubebackup" "advanced_copy_backup" {
+  name                      = "advanced_copy_backup"
+  kubecluster_id            = cloudcasa_kubecluster.protected_cluster.id
+  policy_id                 = cloudcasa_policy.weekly.id
+  all_namespaces            = true
+  copy_persistent_volumes   = true
+  
+  # Advanced copy options with fine-grained control over the backup process
+  copy_options = jsonencode({
+    "azure_files_restore_options": {
+      "method": "CSI_DRIVER",
+      "pvc_restore_wait_seconds": 10,
+      "check_file_restore_status_interval_seconds": 5
+    },
+    "pvc_parallelism": 4,
+    "total_file_parallelism": 48,
+    "upload_speed_limit": 200000000,
+    "download_speed_limit": 200000000,
+    "mover_memory_limit": 1024,
+    "mover_ready_timeout": "20m",
+    "preserve_node_ports": false
+  })
 }
