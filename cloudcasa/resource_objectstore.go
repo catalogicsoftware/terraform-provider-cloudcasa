@@ -411,7 +411,8 @@ func (r *resourceObjectstore) Read(ctx context.Context, req resource.ReadRequest
 			state.EndpointUrl = types.StringValue(objectstoreResp.S3Provider.Endpoint)
 		}
 		
-		if objectstoreResp.Region != "" {
+		// For S3, only set region if it was explicitly defined in the plan
+		if objectstoreResp.Region != "" && !state.Region.IsNull() {
 			state.Region = types.StringValue(objectstoreResp.Region)
 		}
 		
@@ -425,6 +426,7 @@ func (r *resourceObjectstore) Read(ctx context.Context, req resource.ReadRequest
 		}
 
 	} else if objectstoreResp.ProviderType == "azure" {
+		// For Azure, region is required so always set it
 		if objectstoreResp.Region != "" {
 			state.Region = types.StringValue(objectstoreResp.Region)
 		}
