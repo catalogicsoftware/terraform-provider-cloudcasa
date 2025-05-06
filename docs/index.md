@@ -7,8 +7,8 @@ description: |-
 
 # CloudCasa Terraform Provider
 
-With the CloudCasa Terraform Provider, you can use Terraform to configure cluster, backup job, policy, an storage resources in CloudCasa by Catalogic.
-You can also automatically deploy the CloudCasa agent to Kubernetes clustes.
+With the CloudCasa Terraform Provider, you can use Terraform to configure cluster, backup job, policy, and storage resources in CloudCasa by Catalogic.
+You can also automatically deploy the CloudCasa agent to Kubernetes clusters.
 The provider interacts with the CloudCasa service using CloudCasa's published REST APIs.
 
 ## Getting Started
