@@ -5,9 +5,11 @@ description: |-
   Interact with CloudCasa
 ---
 
-# cloudcasa Provider
+# CloudCasa Terraform Provider
 
-Interact with CloudCasa
+With the CloudCasa Terraform Provider, you can use Terraform to configure cluster, backup job, policy, and storage resources in CloudCasa by Catalogic.
+You can also automatically deploy the CloudCasa agent to Kubernetes clusters.
+The provider interacts with the CloudCasa service using CloudCasa's published REST APIs.
 
 ## Getting Started
 
@@ -81,7 +83,7 @@ If `run_on_apply` is True, the backup will be considered Adhoc and does not requ
 
 You can set most options that are available in the CloudCasa UI. 
 
-For example, here is a simple Adhoc snapshot job:
+For example, here is a simple ad hoc snapshot job:
 
 ```hcl
 resource "cloudcasa_kubebackup" "adhoc_snapshot_example" {
