@@ -23,7 +23,7 @@ In your terraform manifest, create and configure the provider:
 terraform {
   required_providers {
     cloudcasa = {
-      version = "1.2.0"
+      version = "1.2.1"
       source = "catalogicsoftware/cloudcasa"
     }
   }
